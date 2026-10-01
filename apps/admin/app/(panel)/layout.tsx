@@ -41,7 +41,7 @@ function Gate({ children }: { children: React.ReactNode }) {
         ) : (
           <>
             <h1 className="mb-1 text-lg font-semibold">Set up two-step verification</h1>
-            <p className="mb-6 text-silt-soft">Your role requires a code from your phone at every sign-in, so a stolen password alone can't open the admin.</p>
+            <p className="mb-6 text-silt-soft">Two-step verification is required for all staff: a code from your phone at every sign-in, so a stolen password alone can't open the admin.</p>
             <TwoFactorSetup onDone={() => void reload()} />
           </>
         )}

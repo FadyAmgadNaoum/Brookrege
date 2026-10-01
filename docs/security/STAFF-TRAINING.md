@@ -6,7 +6,7 @@ each section, shows it live in the admin, and finishes with the quiz. Keep the s
 ## 1. Your account (10 min)
 
 - **Password**: at least 12 characters, not used anywhere else. A password manager (Bitwarden, 1Password, or the browser's) is the easy way. The admin refuses weak and common passwords — including ones with "brookrege" or "sohag" in them.
-- **Two-step verification (2FA)**: My account › Two-step verification. Install Google Authenticator, Microsoft Authenticator or Authy, scan the QR code. Super admins must use it; everyone should.
+- **Two-step verification (2FA)**: My account › Two-step verification. Install Google Authenticator, Microsoft Authenticator or Authy, scan the QR code. It's optional (a super admin can require it for everyone in Security › Policy), and recommended.
 - **Backup codes**: shown once when you turn on 2FA. Print them or save them in the password manager — **not** in a photo on the same phone. Each works once.
 - **Lost phone?** Tell a super admin at once; they reset your 2FA and sign you out everywhere.
 - **Sessions**: you're signed out after 60 minutes without activity and after 12 hours in any case. My account › Sessions shows where you're signed in; sign out anything you don't recognise.

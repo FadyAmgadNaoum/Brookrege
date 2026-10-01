@@ -76,7 +76,7 @@ adminTeamRouter.patch("/:id", validate(idParam, "params"), validate(patchBody), 
   res.json({ data: user });
 }));
 
-/** Lost phone: turn 2FA off so the person can set it up again (they're forced to if their role requires it). */
+/** Lost phone: turn 2FA off so the person can set it up again (they're asked to if it's required for everyone). */
 adminTeamRouter.post("/:id/reset-2fa", validate(idParam, "params"), asyncHandler(async (req, res) => {
   const { id } = parsed<typeof idParam>(req, "params");
   if (id === req.user!.id) throw badRequest("You can't reset your own two-step verification here. Use My account, or ask another super admin.");

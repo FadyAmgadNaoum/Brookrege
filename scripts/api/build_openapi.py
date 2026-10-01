@@ -171,7 +171,7 @@ op("post", "/api/admin/auth/password", T, "Change my password", body=obj({"curre
    desc="Password policy: 12+ characters, upper/lower case, number, symbol, no common or personal words. Signs out the other browsers.")
 op("post", "/api/admin/auth/2fa/setup", T, "Start setting up 2FA (QR code + secret)", resp=ok(data(obj({"secret": S(), "otpauthUrl": S(), "qrSvg": S()}))), errors=("409",))
 op("post", "/api/admin/auth/2fa/enable", T, "Confirm the first code and turn 2FA on", body=obj({"code": S()}, ["code"]), resp=ok(data(obj({"backupCodes": arr(S())}))), errors=("400",))
-op("post", "/api/admin/auth/2fa/disable", T, "Turn 2FA off (not allowed where the role requires it)", body=obj({"password": S(), "code": S()}, ["password", "code"]), errors=("400",))
+op("post", "/api/admin/auth/2fa/disable", T, "Turn 2FA off (not allowed while it is required for everyone)", body=obj({"password": S(), "code": S()}, ["password", "code"]), errors=("400",))
 op("post", "/api/admin/auth/2fa/backup-codes", T, "Replace my backup codes", body=obj({"code": S()}, ["code"]), resp=ok(data(obj({"backupCodes": arr(S())}))), errors=("400",))
 op("get", "/api/admin/auth/sessions", T, "My signed-in browsers", resp=ok(data(arr(ref("Session")))), errors=())
 op("delete", "/api/admin/auth/sessions/{id}", T, "Sign out one of my browsers", params_=P("id"), status="204", errors=("404",))

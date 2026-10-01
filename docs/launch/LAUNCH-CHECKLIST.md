@@ -49,7 +49,7 @@ content team. Items marked 🔒 are the "person needed" steps postponed to the e
 
 ## F. People (Owner)
 
-- [ ] 🔒 Staff trained (`docs/training/TRAINING-PLAN.md`), each signed in once, 2FA on for super admins, backup codes stored
+- [ ] 🔒 Staff trained (`docs/training/TRAINING-PLAN.md`), each signed in once, 2FA on for whoever chose it (optional), backup codes stored
 - [ ] 🔒 Security training done and attendance signed — `docs/security/STAFF-TRAINING.md`
 - [ ] 🔒 UAT signed off — `UAT-PLAN.md`
 - [ ] Who answers inquiries on launch day, and until when, is decided

@@ -52,7 +52,7 @@ function TwoFactorTab() {
         <div className="flex flex-wrap gap-2">
           <button className="btn-quiet" onClick={() => setMode("regen")}>Create new backup codes</button>
           {security.twoFactorRequired
-            ? <p className="text-sm text-silt-soft">Your role requires two-step verification. New phone? Ask a super admin to reset it.</p>
+            ? <p className="text-sm text-silt-soft">Two-step verification is required for everyone here. New phone? Ask a super admin to reset it.</p>
             : <button className="btn-danger" onClick={() => setMode("off")}>Turn off</button>}
         </div>
       ) : (

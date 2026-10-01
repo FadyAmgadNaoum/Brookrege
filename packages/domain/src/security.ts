@@ -84,8 +84,11 @@ export function sessionState(s: SessionTimes, idleMinutes: number, now = new Dat
 }
 
 /* ───────────────────────── Two-step verification ───────────────────────── */
-/** Super admins must always use 2FA; the policy can extend this to every staff member. */
-export const requires2fa = (role: Role, requireForAll: boolean) => role === "SUPER_ADMIN" || requireForAll;
+/**
+ * Two-step verification is optional for every role (the owner's choice, DECISIONS row 78). Anyone can turn it on
+ * in My account; a super admin can make it compulsory for all staff with the "Require for everyone" policy.
+ */
+export const requires2fa = (_role: Role, requireForAll: boolean) => requireForAll;
 
 /** What a signed-in person may do before they finish mandatory steps. */
 export type Restriction = "NONE" | "PASSWORD_CHANGE" | "MFA_SETUP";

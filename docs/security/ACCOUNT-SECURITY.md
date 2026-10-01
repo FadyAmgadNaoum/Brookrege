@@ -4,7 +4,7 @@
 
 | Situation | What happens |
 |---|---|
-| **First sign-in of a new team member** | They must replace the temporary password before anything else. Super admins then must set up two-step verification. |
+| **First sign-in of a new team member** | They must replace the temporary password before anything else. Two-step verification is optional, unless a super admin turns on *Security › Policy › Require two-step verification for everyone*. |
 | **Signing in with two-step verification** | Password, then the 6-digit code from Google Authenticator / Microsoft Authenticator / 1Password (or a backup code). |
 | **Lost phone** | Sign in with a backup code. With no codes left, another super admin uses *Security › Staff accounts › Reset 2FA*. |
 | **5 wrong passwords or codes in a row** | The account locks for 15 minutes, then 30, 60 … up to 24 hours. The person gets an email. A super admin can unlock it. |
@@ -18,7 +18,7 @@
 - TOTP (RFC 6238), 6 digits, 30 s, ±30 s clock drift allowed.
 - Each code works once (replay-proof).
 - Secrets are stored AES-256-GCM encrypted.
-- **Required for super admins.** The policy switch in *Security* extends it to everyone.
+- **Optional for every role** (owner's decision, DECISIONS row 78). The policy switch in *Security* makes it required for everyone.
 
 **Backup codes**
 - 10 per person, single-use, bcrypt-hashed, shown once.
@@ -72,7 +72,7 @@
 
 ## Upgrading from Phase 2
 All existing sessions end when the migration runs (they have no server-side session record), so everyone signs in once.
-- Super admins are then asked to set up 2FA.
+- If two-step verification is required for everyone, they're then asked to set it up.
 - The server needs `SETTINGS_ENCRYPTION_KEY` for this. Production refuses to start without it.
 
 ## Locked out of the admin (last resort)

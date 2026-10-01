@@ -21,7 +21,7 @@ export async function resetDb() {
 }
 
 /**
- * Super admins must use two-step verification, so they're created with it switched on;
+ * Super admins are created with two-step verification switched on (so the sign-in tests cover the code step);
  * `totp` is the secret, for generating codes in tests.
  */
 export async function createUser(role: Role, email = `${role.toLowerCase()}@test.local`, opts: { with2fa?: boolean } = {}) {

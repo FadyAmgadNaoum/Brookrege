@@ -217,7 +217,7 @@ authRouter.post(
     if (!user.twoFactorEnabled || !user.totpSecret) throw badRequest("Two-step verification is already off.");
     const policy = await getSecurityPolicy();
     if (requires2fa(user.role, policy.require2faForAll)) {
-      throw new AppError(400, "MFA_REQUIRED", "Your role requires two-step verification, so it can't be turned off. Got a new phone? Ask a super admin to reset it, then set it up again.");
+      throw new AppError(400, "MFA_REQUIRED", "Two-step verification is required for everyone (Security › Policy), so it can't be turned off. Got a new phone? Ask a super admin to reset it, then set it up again.");
     }
     await auth.verifyCurrentPassword(req, user, password);
     if (!verifyTotp(openSecret(user.totpSecret), code, { lastUsedStep: user.totpLastStep }).ok) throw badRequest("That code didn't work.", { code: ["That code didn't work."] });

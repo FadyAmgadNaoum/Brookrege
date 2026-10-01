@@ -223,7 +223,7 @@ paths:
     post:
       tags:
         - "Admin — sign-in & account"
-      summary: "Turn 2FA off (not allowed where the role requires it)"
+      summary: "Turn 2FA off (not allowed while it is required for everyone)"
       operationId: "post_api_admin_auth_2fa_disable"
       requestBody:
         required: true

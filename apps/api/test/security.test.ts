@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
-import { saveIpAllowlist } from "../src/lib/securitySettings";
+import { saveIpAllowlist, saveSecurityPolicy } from "../src/lib/securitySettings";
 import { base32Encode, base32Decode, totpAt } from "../src/lib/totp";
 import { app, codeFor, createUser, loginAs, PASSWORD, resetDb } from "./setup";
 
@@ -12,8 +12,15 @@ afterAll(() => prisma.$disconnect());
 const login = (agent: ReturnType<typeof request.agent>, email: string, password = PASSWORD) => agent.post("/api/admin/auth/login").send({ email, password });
 
 describe("two-step verification", () => {
-  it("a super admin without 2FA must set it up before doing anything else", async () => {
+  it("two-step is optional by default; with 'require for everyone' on, it must be set up before anything else", async () => {
     const u = await createUser("SUPER_ADMIN", "owner@test.local", { with2fa: false });
+    const free = request.agent(app);
+    const first = await login(free, u.email);
+    expect(first.status).toBe(200);
+    expect(first.body.restriction).toBe("NONE");
+    expect((await free.get("/api/admin/properties")).status).toBe(200);
+
+    await saveSecurityPolicy({ require2faForAll: true });
     const agent = request.agent(app);
     const res = await login(agent, u.email);
     expect(res.body.restriction).toBe("MFA_SETUP");
@@ -70,10 +77,15 @@ describe("two-step verification", () => {
     expect((await c.post("/api/admin/auth/2fa/verify").send({ backupCode: codes[0] })).status).toBe(401);
   });
 
-  it("super admins can't turn 2FA off; a super admin can reset someone else's", async () => {
+  it("anyone can turn 2FA off unless it's required for everyone; a super admin can reset someone else's", async () => {
     const { agent, user } = await loginAs("SUPER_ADMIN");
+    await saveSecurityPolicy({ require2faForAll: true });
+    const refused = await agent.post("/api/admin/auth/2fa/disable").send({ password: PASSWORD, code: codeFor(user.totp!, 1) });
+    expect(refused.body.error.code).toBe("MFA_REQUIRED");
+    await saveSecurityPolicy({ require2faForAll: false });
     const off = await agent.post("/api/admin/auth/2fa/disable").send({ password: PASSWORD, code: codeFor(user.totp!, 1) });
-    expect(off.body.error.code).toBe("MFA_REQUIRED");
+    expect(off.status).toBe(200);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).twoFactorEnabled).toBe(false);
     const other = await createUser("CONTENT_ADMIN", "mona@test.local", { with2fa: true });
     expect((await agent.post(`/api/admin/team/${other.id}/reset-2fa`)).status).toBe(200);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: other.id } })).twoFactorEnabled).toBe(false);

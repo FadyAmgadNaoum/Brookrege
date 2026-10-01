@@ -51,7 +51,7 @@ function OverviewTab({ o, reload }: { o: Overview; reload: () => Promise<void> }
         <ErrorNote message={err} />
         <label className="flex items-start gap-3">
           <input type="checkbox" className="mt-1" checked={o.policy.require2faForAll} onChange={toggle} />
-          <span><span className="font-medium">Require two-step verification for everyone</span><span className="block text-sm text-silt-soft">Super admins always need it. When on, content admins and moderators must set it up at their next sign-in.</span></span>
+          <span><span className="font-medium">Require two-step verification for everyone</span><span className="block text-sm text-silt-soft">Off: two-step verification is optional — each person can turn it on in My account. On: everyone without it must set it up at their next sign-in.</span></span>
         </label>
         <p className="mt-4 text-sm text-silt-soft">Sessions end after {o.policy.sessionIdleMinutes} minutes without activity and after {o.policy.sessionMaxHours} hours in any case. After 5 wrong passwords or codes an account locks for 15 minutes (then 30, 60 …).</p>
       </section>

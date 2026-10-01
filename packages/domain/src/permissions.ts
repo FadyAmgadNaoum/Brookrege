@@ -17,7 +17,7 @@ export const PERMISSIONS = [
   "media:write",
   "analytics:read",
   "notifications:manage",
-  "security:manage", // sessions, 2FA resets, IP allowlist, security policy
+  "security:manage", // sessions, unlocking accounts, IP allowlist
   "privacy:manage", // data-subject lookups, exports and erasure
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

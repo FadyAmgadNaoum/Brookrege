@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { Request } from "express";
@@ -9,10 +9,6 @@ import { audit } from "../../lib/audit";
 import { AppError, unauthorized } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import { prisma } from "../../lib/prisma";
-import { openSecret } from "../../lib/secrets";
-import { getSecurityPolicy } from "../../lib/securitySettings";
-import { verifyTotp } from "../../lib/totp";
-import { normalizeBackupCode } from "../../lib/backupCodes";
 import { queueEmail } from "../notifications/notify.service";
 
 const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
@@ -44,10 +40,10 @@ export async function securityAlert(user: Pick<User, "email" | "name">, event: s
 
 /* ───────────────────────── Failed attempts & lockout ───────────────────────── */
 
-/** Counts a failed password or 2FA code. Returns the lock end time if this failure locked the account. */
-async function recordFailure(req: Request, user: Pick<User, "id" | "email" | "name">, kind: "password" | "mfa" | "password_change"): Promise<Date | null> {
+/** Counts a failed password. Returns the lock end time if this failure locked the account. */
+async function recordFailure(req: Request, user: Pick<User, "id" | "email" | "name">, kind: "password" | "password_change"): Promise<Date | null> {
   const { failedLoginCount } = await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: { increment: 1 } }, select: { failedLoginCount: true } });
-  const action = kind === "mfa" ? "auth.mfa_failed" : kind === "password_change" ? "auth.password_check_failed" : "auth.login_failed";
+  const action = kind === "password_change" ? "auth.password_check_failed" : "auth.login_failed";
   await audit(req, { action, entityType: "User", entityId: user.id, after: { attempt: failedLoginCount } });
   const until = lockUntilAfterFailure(failedLoginCount);
   if (until) {
@@ -78,7 +74,7 @@ async function issueRefresh(userId: string, sessionId: string, sessionExpiresAt:
   return token;
 }
 
-/** Ends sessions and their refresh tokens. Used for logout, idle timeout, password/2FA changes and admin action. */
+/** Ends sessions and their refresh tokens. Used for logout, idle timeout, password changes and admin action. */
 export async function revokeSessions(where: { userId?: string; sessionIds?: string[]; exceptSessionId?: string }, reason: string) {
   const sessions = await prisma.adminSession.findMany({
     where: {
@@ -102,17 +98,16 @@ export async function revokeSessions(where: { userId?: string; sessionIds?: stri
 /** Kept for existing callers (team management). */
 export const revokeAllForUser = (userId: string, reason = "admin") => revokeSessions({ userId }, reason);
 
-async function startSession(req: Request, user: User, mfaVerified: boolean) {
+async function startSession(req: Request, user: User) {
   const now = new Date();
   const { ip, userAgent } = clientOf(req);
   const session = await prisma.adminSession.create({
-    data: { userId: user.id, ip, userAgent, mfaVerified, expiresAt: new Date(now.getTime() + env.SESSION_MAX_HOURS * 3_600_000) },
+    data: { userId: user.id, ip, userAgent, expiresAt: new Date(now.getTime() + env.SESSION_MAX_HOURS * 3_600_000) },
   });
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: now, failedLoginCount: 0, lockedUntil: null } });
-  const policy = await getSecurityPolicy();
   return {
     user: publicUser(user),
-    restriction: restrictionFor(user, policy.require2faForAll),
+    restriction: restrictionFor(user),
     access: signAccess(user, session.id),
     refresh: await issueRefresh(user.id, session.id, session.expiresAt),
     sessionId: session.id,
@@ -120,11 +115,10 @@ async function startSession(req: Request, user: User, mfaVerified: boolean) {
 }
 
 export type SessionResult = Awaited<ReturnType<typeof startSession>>;
-export type LoginResult = { kind: "session"; session: SessionResult } | { kind: "mfa"; challenge: string };
 
 /* ───────────────────────── Sign-in ───────────────────────── */
 
-export async function login(req: Request, email: string, password: string): Promise<LoginResult> {
+export async function login(req: Request, email: string, password: string): Promise<SessionResult> {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   // While locked, the password isn't even checked — guesses during the lock tell the attacker nothing.
   if (user?.lockedUntil && user.lockedUntil > new Date()) throw lockedError(user.lockedUntil);
@@ -146,70 +140,7 @@ export async function login(req: Request, email: string, password: string): Prom
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(password) } });
   }
 
-  if (user.twoFactorEnabled) {
-    // NOTE: the failed-attempt counter is NOT reset here. Otherwise someone who knows the password could
-    // reset it on every try and guess 2FA codes forever. It resets only after a complete sign-in.
-    const challenge = jwt.sign({ purpose: "mfa" }, env.JWT_ACCESS_SECRET, {
-      subject: user.id, issuer: ISSUER, audience: "brookrege-mfa", algorithm: "HS256", expiresIn: 300, jwtid: randomUUID(),
-    });
-    return { kind: "mfa", challenge };
-  }
-  return { kind: "session", session: await startSession(req, user, false) };
-}
-
-/** Second step: a 6-digit authenticator code, or one of the backup codes. */
-export async function verifyMfa(req: Request, challenge: string | undefined, input: { code?: string; backupCode?: string }): Promise<SessionResult> {
-  let userId: string;
-  try {
-    const claims = jwt.verify(challenge ?? "", env.JWT_ACCESS_SECRET, { algorithms: ["HS256"], issuer: ISSUER, audience: "brookrege-mfa" }) as { sub: string; purpose: string };
-    if (claims.purpose !== "mfa") throw new Error("wrong purpose");
-    userId = claims.sub;
-  } catch {
-    throw unauthorized("Sign-in took too long. Enter your email and password again.");
-  }
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || user.status !== "ACTIVE" || !user.twoFactorEnabled || !user.totpSecret) throw unauthorized("Enter your email and password again.");
-  if (user.lockedUntil && user.lockedUntil > new Date()) throw lockedError(user.lockedUntil);
-
-  let ok = false;
-  let usedBackup = false;
-  if (input.code) {
-    const r = verifyTotp(openSecret(user.totpSecret), input.code, { lastUsedStep: user.totpLastStep });
-    if (r.ok) {
-      // Conditional write: if two requests race with the same code, only one wins (replay protection).
-      const { count } = await prisma.user.updateMany({
-        where: { id: user.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: r.step } }] },
-        data: { totpLastStep: r.step },
-      });
-      ok = count === 1;
-    }
-  } else if (input.backupCode) {
-    const code = normalizeBackupCode(input.backupCode);
-    if (code) {
-      const unused = await prisma.backupCode.findMany({ where: { userId: user.id, usedAt: null } });
-      for (const c of unused) {
-        if (await bcrypt.compare(code, c.codeHash)) {
-          const { count } = await prisma.backupCode.updateMany({ where: { id: c.id, usedAt: null }, data: { usedAt: new Date() } });
-          ok = usedBackup = count === 1;
-          break;
-        }
-      }
-    }
-  }
-
-  if (!ok) {
-    const until = await recordFailure(req, user, "mfa");
-    if (until) throw lockedError(until);
-    throw unauthorized(input.backupCode ? "That backup code isn't valid or was already used." : "That code didn't work. Use the newest code, and check your phone's time is set automatically.");
-  }
-
-  const session = await startSession(req, user, true);
-  if (usedBackup) {
-    const left = await prisma.backupCode.count({ where: { userId: user.id, usedAt: null } });
-    await audit(req, { action: "auth.backup_code_used", entityType: "User", entityId: user.id, after: { remaining: left } });
-    await securityAlert(user, `A backup code was used to sign in. ${left} backup code(s) left${left <= 3 ? " — create new ones in My account › Two-step verification" : ""}.`, req);
-  }
-  return session;
+  return startSession(req, user);
 }
 
 /* ───────────────────────── Refresh & logout ───────────────────────── */
@@ -245,10 +176,9 @@ export async function refresh(presented: string | undefined) {
   if (revoked.count === 0) throw unauthorized(); // a parallel refresh won
 
   await prisma.adminSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } });
-  const policy = await getSecurityPolicy();
   return {
     user: publicUser(row.user),
-    restriction: restrictionFor(row.user, policy.require2faForAll),
+    restriction: restrictionFor(row.user),
     access: signAccess(row.user, session.id),
     refresh: await issueRefresh(row.userId, session.id, session.expiresAt),
   };

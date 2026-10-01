@@ -8,8 +8,6 @@ import { safeNext } from "@/lib/safeNext";
 function LoginForm() {
   const router = useRouter();
   const next = safeNext(useSearchParams().get("next"));
-  const [step, setStep] = useState<"password" | "code">("password");
-  const [useBackup, setUseBackup] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,38 +28,10 @@ function LoginForm() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     void run(async () => {
-      const r = await api<{ mfaRequired?: boolean }>("/auth/login", { method: "POST", json: { email: fd.get("email"), password: fd.get("password") } });
-      if (r.mfaRequired) { setStep("code"); setBusy(false); return; }
+      await api("/auth/login", { method: "POST", json: { email: fd.get("email"), password: fd.get("password") } });
       router.replace(next);
     });
   };
-
-  const submitCode = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const value = String(new FormData(e.currentTarget).get("code") ?? "").trim();
-    void run(async () => {
-      await api("/auth/2fa/verify", { method: "POST", json: useBackup ? { backupCode: value } : { code: value } });
-      router.replace(next);
-    });
-  };
-
-  if (step === "code") {
-    return (
-      <form onSubmit={submitCode} className="panel w-full max-w-sm space-y-4 p-6">
-        <h1 className="text-lg font-semibold">Two-step verification</h1>
-        <p className="text-silt-soft">{useBackup ? "Enter one of your backup codes. Each code works once." : "Enter the 6-digit code from your authenticator app."}</p>
-        <input key={String(useBackup)} name="code" required autoFocus dir="ltr" autoComplete="one-time-code"
-          inputMode={useBackup ? "text" : "numeric"} maxLength={useBackup ? 12 : 7} placeholder={useBackup ? "xxxx-xxxx" : "123 456"}
-          aria-label={useBackup ? "Backup code" : "6-digit code"} className="field text-center text-lg tracking-widest" />
-        {error && <p role="alert" className="text-red-700">{error}</p>}
-        <button className="btn-primary w-full" disabled={busy}>{busy ? "Checking…" : "Sign in"}</button>
-        <div className="flex justify-between text-sm">
-          <button type="button" onClick={() => { setUseBackup((b) => !b); setError(null); }} className="text-palm hover:underline">{useBackup ? "Use the app code" : "Use a backup code"}</button>
-          <button type="button" onClick={() => { setStep("password"); setError(null); }} className="text-silt-soft hover:underline">Start again</button>
-        </div>
-      </form>
-    );
-  }
 
   return (
     <form onSubmit={submitPassword} className="panel w-full max-w-sm space-y-4 p-6">

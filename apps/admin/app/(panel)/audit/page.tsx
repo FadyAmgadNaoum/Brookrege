@@ -58,7 +58,7 @@ export default function AuditPage() {
       <PageHeader title="Activity log">Every change made in the admin, who made it, and when. Entries can&apos;t be edited or deleted.</PageHeader>
       <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} className="field mb-4 w-64" aria-label="Show">
         <option value="">Everything</option>
-        <option value="auth.">Sign-ins, passwords and 2FA</option>
+        <option value="auth.">Sign-ins and passwords</option>
         <option value="security.">Security settings</option>
         <option value="team.">Team changes</option>
         <option value="property.">Listings</option>

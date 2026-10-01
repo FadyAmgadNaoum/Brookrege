@@ -66,12 +66,12 @@ At the end you'll see the **admin password** and the **backup key**. Store the k
 ## ٥. أول دخول — First sign-in (10 minutes)
 
 1. افتح `https://admin.<الدومين>` وادخل بإيميلك وكلمة السر.
-2. (اختياري) التحقق بخطوتين: مقفول افتراضيًا. تقدر تفعّله لنفسك من My account › Two-step verification، أو تخليه إجباري للكل من Security › Policy.
+2. الدخول بالإيميل وكلمة السر فقط. غيّر كلمة السر من My account › Password لو حبيت، واحفظها في مدير كلمات سر.
 3. أضف المناطق والكمبوندات (Regions, compounds & projects) ثم العقارات بالصور (Listings › Add listing).
 4. أضف فريقك (Team › Add member).
 دليل لوحة التحكم الكامل: `docs/training/admin-manual/Brookrege-Admin-Manual.pdf`.
 
-Sign in (2-step verification is optional — My account, or Security › Policy to require it for all), add regions/compounds/listings, add your team. Full guide: the admin manual PDF.
+Sign in with email and password (keep the password in a password manager), add regions/compounds/listings, add your team. Full guide: the admin manual PDF.
 
 ## ٦. بعد الإطلاق (نفس اليوم أو الأسبوع الأول) — After launch
 

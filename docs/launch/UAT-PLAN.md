@@ -35,7 +35,7 @@ it. Testers use the site like customers and the admin like on a normal day, and 
 | # | Do this | Expected | ✓ |
 |---|---|---|---|
 | S1 | First sign-in with the temporary password | Forced to choose a new password; rules explained | |
-| S2 | Owner: turn on 2FA, sign out, sign in with the code, then with a backup code | Works; the used backup code doesn't work again | |
+| S2 | Owner: change the password in My account, sign out, sign in with the new one; the old one is refused | Works; other browsers were signed out | |
 | S3 | Five wrong passwords | Account locked with a clear message; owner unlocks it | |
 | S4 | C: add a listing with 10 photos and a video, publish | Photos processed in seconds, video poster within minutes; live on the site within a minute | |
 | S5 | C: try Rent + Villa; Sale without seller type; a PDF as a photo | Each refused with a clear reason | |

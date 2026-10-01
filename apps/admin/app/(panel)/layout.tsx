@@ -3,7 +3,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { Loading } from "@/components/ui";
 import { PasswordForm } from "@/components/security/PasswordForm";
-import { TwoFactorSetup } from "@/components/security/TwoFactorSetup";
 import { api } from "@/lib/api";
 import { SessionProvider, useSession } from "@/lib/session";
 
@@ -20,7 +19,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   );
 }
 
-/** Mandatory steps come before everything else; the menu isn't shown until they're done. */
+/** Replacing a temporary password comes before everything else; the menu isn't shown until it's done. */
 function Gate({ children }: { children: React.ReactNode }) {
   const { restriction, user, reload } = useSession();
   if (restriction === "NONE") return <>{children}</>;
@@ -32,19 +31,9 @@ function Gate({ children }: { children: React.ReactNode }) {
         <button onClick={signOut} className="text-sm text-palm hover:underline">Sign out</button>
       </div>
       <div className="panel p-6">
-        {restriction === "PASSWORD_CHANGE" ? (
-          <>
-            <h1 className="mb-1 text-lg font-semibold">Choose your own password</h1>
-            <p className="mb-6 text-silt-soft">You signed in with a temporary password. Replace it with one only you know.</p>
-            <PasswordForm user={user} submitLabel="Save my password" onDone={() => void reload()} />
-          </>
-        ) : (
-          <>
-            <h1 className="mb-1 text-lg font-semibold">Set up two-step verification</h1>
-            <p className="mb-6 text-silt-soft">Two-step verification is required for all staff: a code from your phone at every sign-in, so a stolen password alone can't open the admin.</p>
-            <TwoFactorSetup onDone={() => void reload()} />
-          </>
-        )}
+        <h1 className="mb-1 text-lg font-semibold">Choose your own password</h1>
+        <p className="mb-6 text-silt-soft">You signed in with a temporary password. Replace it with one only you know.</p>
+        <PasswordForm user={user} submitLabel="Save my password" onDone={() => void reload()} />
       </div>
     </main>
   );

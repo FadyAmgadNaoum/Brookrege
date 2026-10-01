@@ -21,7 +21,7 @@ No SQL injection or stored-XSS path was found. Seven weaknesses were found and *
 | F4 | Video processing | ffmpeg was run without a protocol restriction. A crafted file could, on some builds, make it fetch URLs or read other files (SSRF). The installed ffmpeg 6.1 already blocked the test file. | Low (defence in depth) | **Fixed:** `-protocol_whitelist file`, verified against a crafted playlist. |
 | F5 | All endpoints | A NUL byte (`%00`) in a URL or field caused a PostgreSQL error, returned as HTTP 500. | Low | **Fixed:** `rejectNullBytes` middleware returns 400; upload file names are cleaned. |
 | F6 | All endpoints | Malformed JSON and other framework client errors were returned as HTTP 500. | Low | **Fixed:** the error handler returns the framework's 4xx status with a generic message. |
-| F7 | Tokens | The 2FA challenge token couldn't be used as a session token, but only because it lacked one claim. | Informational | **Fixed:** tokens with an audience are rejected explicitly. |
+| F7 | Tokens | A short-lived sign-in challenge token (since removed with two-step verification) couldn't be used as a session token, but only because it lacked one claim. | Informational | **Fixed:** tokens with an audience are rejected explicitly. |
 | A1 | Analytics | Anyone can inflate a listing's view count by reloading it; known crawlers and link previews are excluded. | Low | **Accepted:** it affects statistics only. Revisit if the numbers are used for billing. |
 | A2 | Admin sign-in | After 5 failures the lock message reveals that an email belongs to a staff account. | Low | **Accepted:** a clear message helps staff; enumeration is limited by the rate limits, and staff emails aren't secret. |
 | A3 | Content Security Policy | Inline scripts are allowed (Next.js bootstrap and the theme script). Scripts from other origins are blocked. | Low | **Accepted for now:** a nonce-based CSP is the next step (see "Follow-ups"). |
@@ -43,7 +43,7 @@ No SQL injection or stored-XSS path was found. Seven weaknesses were found and *
 | **SSRF** | The server fetches only fixed URLs (SendGrid, Twilio, R2). ffmpeg is restricted to local files. |
 | **Open redirect** | The admin sign-in redirect accepts only same-site paths. The public site builds links from its own data. |
 | **Denial of service by input** | JSON bodies are capped at 200 KB, fields have maximum lengths, and pages at 48–100 rows. Nginx and Cloudflare limits are in place (Week 11). |
-| **Secrets in responses** | Password hashes, TOTP secrets and provider keys are never selected into responses (explicit `select`). Provider keys are masked to their last 4 characters. |
+| **Secrets in responses** | Password hashes and provider keys are never selected into responses (explicit `select`). Provider keys are masked to their last 4 characters. |
 | **Error leakage** | Unexpected errors return a generic message. Stack traces and SQL appear only in server logs (tested). |
 
 ## Follow-ups (not blocking)

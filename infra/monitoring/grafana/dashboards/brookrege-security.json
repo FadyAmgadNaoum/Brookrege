@@ -63,7 +63,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(brookrege_auth_events_total{event=~\"login_failed|mfa_failed\"}[1h])) or vector(0)",
+          "expr": "sum(increase(brookrege_auth_events_total{event=\"login_failed\"}[1h])) or vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

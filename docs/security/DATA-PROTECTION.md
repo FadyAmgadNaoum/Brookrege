@@ -7,8 +7,6 @@
 | Visitor ↔ site | TLS 1.2/1.3 at Cloudflare's edge; TLS 1.3 only from Cloudflare to our server (`TLS_PROTOCOLS`) | — | HSTS with preload. Old Android phones (below Android 10) still connect over TLS 1.2 at the edge. |
 | Server ↔ server (VPS1/2/3) | WireGuard (ChaCha20-Poly1305) | — | Database, pgBouncer, NFS and the apps are reachable only on the WireGuard addresses. |
 | Staff passwords | TLS | bcrypt cost 12 (one-way) | Never stored or logged in plain text; upgraded automatically. |
-| 2FA secrets | TLS | **AES-256-GCM** (`SETTINGS_ENCRYPTION_KEY`) | Decrypted only in memory while checking a code. |
-| 2FA backup codes | shown once | bcrypt (one-way) | |
 | SendGrid / Twilio keys | TLS | **AES-256-GCM** | Masked in the admin (last 4 characters only). |
 | Sessions / refresh tokens | TLS, `__Host-` cookies | SHA-256 hash only | A database leak doesn't reveal usable tokens. |
 | Database backups | TLS / WireGuard to R2 | **age (X25519 + ChaCha20-Poly1305)**, public-key | The server holds only the public key; the owner keeps the private key offline. |

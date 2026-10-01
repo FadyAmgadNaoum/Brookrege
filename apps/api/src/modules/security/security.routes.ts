@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requires2fa } from "@brookrege/domain";
 import { env } from "../../config/env";
 import { asyncHandler } from "../../lib/asyncHandler";
 import { audit } from "../../lib/audit";
@@ -8,7 +7,7 @@ import { badRequest, notFound } from "../../lib/errors";
 import { buildBlockList, ipAllowed, normalizeIp, parseEntry } from "../../lib/ipAllowlist";
 import { prisma } from "../../lib/prisma";
 import { canStoreSecrets } from "../../lib/secrets";
-import { getIpAllowlist, getSecurityPolicy, saveIpAllowlist, saveSecurityPolicy } from "../../lib/securitySettings";
+import { getIpAllowlist, saveIpAllowlist } from "../../lib/securitySettings";
 import { requirePermission } from "../../middleware/auth";
 import { parsed, validate } from "../../middleware/validate";
 import { revokeSessions } from "../auth/auth.service";
@@ -25,7 +24,7 @@ function configChecks() {
   const https = (u: string) => u.startsWith("https://");
   return [
     { id: "env", label: "Running with production safety checks", ok: env.appEnv === "production", detail: `APP_ENV=${env.appEnv}. Production refuses to start with example secrets or insecure settings.` },
-    { id: "encryption", label: "Secrets are encrypted at rest", ok: canStoreSecrets(), detail: canStoreSecrets() ? "2FA secrets and provider API keys are AES-256-GCM encrypted." : "Set SETTINGS_ENCRYPTION_KEY — 2FA can't be enabled without it." },
+    { id: "encryption", label: "Secrets are encrypted at rest", ok: canStoreSecrets(), detail: canStoreSecrets() ? "Email/SMS provider API keys are AES-256-GCM encrypted." : "Set SETTINGS_ENCRYPTION_KEY — provider API keys can't be saved without it." },
     { id: "cookies", label: "Sign-in cookies are HTTPS-only", ok: env.cookieSecure, detail: env.cookieSecure ? "Secure, HttpOnly, SameSite=Strict, host-locked (__Host-)." : "COOKIE_SECURE is off (fine only on http://localhost)." },
     { id: "https", label: "Site and admin use HTTPS", ok: https(env.PUBLIC_API_URL) && https(env.ADMIN_APP_URL), detail: `${env.PUBLIC_API_URL} · ${env.ADMIN_APP_URL}` },
     { id: "idle", label: `Sessions end after ${env.SESSION_IDLE_MINUTES} minutes of inactivity`, ok: env.SESSION_IDLE_MINUTES <= 60, detail: `Absolute limit ${env.SESSION_MAX_HOURS} hours.` },
@@ -39,19 +38,18 @@ adminSecurityRouter.get(
   asyncHandler(async (_req, res) => {
     const now = new Date();
     const idleCutoff = new Date(now.getTime() - env.SESSION_IDLE_MINUTES * 60_000);
-    const [policy, allowlist, staff, failed24h, failed7d, activeSessions, events] = await Promise.all([
-      getSecurityPolicy(),
+    const [allowlist, staff, failed24h, failed7d, activeSessions, events] = await Promise.all([
       getIpAllowlist(),
       prisma.user.findMany({
         orderBy: { createdAt: "asc" },
         select: {
-          id: true, name: true, email: true, role: true, status: true, twoFactorEnabled: true, lockedUntil: true, lastLoginAt: true,
+          id: true, name: true, email: true, role: true, status: true, lockedUntil: true, lastLoginAt: true,
           mustChangePassword: true, passwordChangedAt: true,
-          _count: { select: { sessions: { where: { revokedAt: null, expiresAt: { gt: now }, lastSeenAt: { gt: idleCutoff } } }, backupCodes: { where: { usedAt: null } } } },
+          _count: { select: { sessions: { where: { revokedAt: null, expiresAt: { gt: now }, lastSeenAt: { gt: idleCutoff } } } } },
         },
       }),
-      prisma.auditLog.count({ where: { action: { in: ["auth.login_failed", "auth.mfa_failed"] }, createdAt: { gt: new Date(now.getTime() - DAY) } } }),
-      prisma.auditLog.count({ where: { action: { in: ["auth.login_failed", "auth.mfa_failed"] }, createdAt: { gt: new Date(now.getTime() - 7 * DAY) } } }),
+      prisma.auditLog.count({ where: { action: "auth.login_failed", createdAt: { gt: new Date(now.getTime() - DAY) } } }),
+      prisma.auditLog.count({ where: { action: "auth.login_failed", createdAt: { gt: new Date(now.getTime() - 7 * DAY) } } }),
       prisma.adminSession.count({ where: { revokedAt: null, expiresAt: { gt: now }, lastSeenAt: { gt: idleCutoff } } }),
       prisma.auditLog.findMany({
         where: { OR: SECURITY_ACTIONS.map((p) => ({ action: { startsWith: p } })) },
@@ -65,33 +63,18 @@ adminSecurityRouter.get(
       data: {
         counts: {
           staff: active.length,
-          with2fa: active.filter((u) => u.twoFactorEnabled).length,
-          required2faMissing: active.filter((u) => requires2fa(u.role, policy.require2faForAll) && !u.twoFactorEnabled).length,
           locked: staff.filter((u) => u.lockedUntil && u.lockedUntil > now).length,
           activeSessions,
           failedSignIns24h: failed24h,
           failedSignIns7d: failed7d,
         },
-        policy: { ...policy, sessionIdleMinutes: env.SESSION_IDLE_MINUTES, sessionMaxHours: env.SESSION_MAX_HOURS },
+        policy: { sessionIdleMinutes: env.SESSION_IDLE_MINUTES, sessionMaxHours: env.SESSION_MAX_HOURS },
         ipAllowlist: { enabled: allowlist.enabled, count: allowlist.entries.length },
-        staff: staff.map(({ _count, ...u }) => ({ ...u, activeSessions: _count.sessions, backupCodesLeft: _count.backupCodes, twoFactorRequired: requires2fa(u.role, policy.require2faForAll) })),
+        staff: staff.map(({ _count, ...u }) => ({ ...u, activeSessions: _count.sessions })),
         checks: configChecks(),
         events,
       },
     });
-  }),
-);
-
-const policySchema = z.object({ require2faForAll: z.boolean() });
-adminSecurityRouter.put(
-  "/policy",
-  validate(policySchema),
-  asyncHandler(async (req, res) => {
-    const before = await getSecurityPolicy();
-    const after = parsed<typeof policySchema>(req, "body");
-    await saveSecurityPolicy(after);
-    await audit(req, { action: "security.policy_update", entityType: "Setting", entityId: "security.policy", before, after });
-    res.json({ data: after });
   }),
 );
 
@@ -103,7 +86,7 @@ adminSecurityRouter.get(
     const rows = await prisma.adminSession.findMany({
       where: { revokedAt: null, expiresAt: { gt: now }, lastSeenAt: { gt: new Date(now.getTime() - env.SESSION_IDLE_MINUTES * 60_000) } },
       orderBy: { lastSeenAt: "desc" },
-      select: { id: true, ip: true, userAgent: true, createdAt: true, lastSeenAt: true, mfaVerified: true, user: { select: { id: true, name: true, role: true } } },
+      select: { id: true, ip: true, userAgent: true, createdAt: true, lastSeenAt: true, user: { select: { id: true, name: true, role: true } } },
     });
     res.json({ data: rows.map((s) => ({ ...s, current: s.id === req.auth!.sessionId })) });
   }),

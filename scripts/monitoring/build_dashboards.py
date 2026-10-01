@@ -240,7 +240,7 @@ boards.append(b)
 # ───────────────────────── 6. Security ─────────────────────────
 b = Board("brookrege-security", "Brookrege · Security", "Sign-in attempts, blocked requests, and SSH activity.", ["security"])
 b.row("Admin sign-ins")
-b.stat("Failed sign-ins (1 h)", 'sum(increase(brookrege_auth_events_total{event=~"login_failed|mfa_failed"}[1h])) or vector(0)', w=6, decimals=0,
+b.stat("Failed sign-ins (1 h)", 'sum(increase(brookrege_auth_events_total{event="login_failed"}[1h])) or vector(0)', w=6, decimals=0,
        steps=[{"color": PALM, "value": None}, {"color": AMBER, "value": 10}, {"color": RED, "value": 30}])
 b.stat("Accounts locked (24 h)", 'sum(increase(brookrege_auth_events_total{event="locked"}[24h])) or vector(0)', w=6, decimals=0,
        steps=[{"color": PALM, "value": None}, {"color": AMBER, "value": 1}])

@@ -8,7 +8,7 @@ import { fmtDate } from "@/lib/labels";
 import { useSession } from "@/lib/session";
 import { useFetch } from "@/lib/useFetch";
 
-interface Member { id: string; email: string; name: string; role: Role; status: "ACTIVE" | "SUSPENDED"; lastLoginAt: string | null; twoFactorEnabled: boolean; lockedUntil: string | null; mustChangePassword: boolean }
+interface Member { id: string; email: string; name: string; role: Role; status: "ACTIVE" | "SUSPENDED"; lastLoginAt: string | null; lockedUntil: string | null; mustChangePassword: boolean }
 const ROLE_LABEL: Record<Role, string> = { SUPER_ADMIN: "Super admin", CONTENT_ADMIN: "Content admin", MODERATOR: "Moderator" };
 const ROLE_HELP: Record<Role, string> = {
   SUPER_ADMIN: "Everything, including team and activity log",
@@ -60,11 +60,11 @@ export default function TeamPage() {
         </div>
         <div><label className="label" htmlFor="t-pw">Temporary password</label><input id="t-pw" name="password" type="text" required minLength={12} autoComplete="new-password" className="field" /></div>
         <div className="flex items-end"><button className="btn-primary w-full">Add member</button></div>
-        <p className="text-xs text-silt-soft md:col-span-5">Temporary password: 12+ characters with upper and lower case letters, a number and a symbol, and not a common word. The person replaces it at first sign-in. Two-step verification, unlocking and sign-outs are on the Security page.</p>
+        <p className="text-xs text-silt-soft md:col-span-5">Temporary password: 12+ characters with upper and lower case letters, a number and a symbol, and not a common word. The person replaces it at first sign-in. Unlocking and sign-outs are on the Security page.</p>
       </form>
       {loading ? <Loading /> : error ? <ErrorNote message={error} /> : (
         <div className="panel overflow-x-auto"><table className="w-full min-w-[820px]">
-          <thead><tr><th className="th">Member</th><th className="th">Role</th><th className="th">Last sign-in</th><th className="th">Two-step</th><th className="th">Access</th></tr></thead>
+          <thead><tr><th className="th">Member</th><th className="th">Role</th><th className="th">Last sign-in</th><th className="th">Access</th></tr></thead>
           <tbody>{data?.data.map((m) => (
             <tr key={m.id}>
               <td className="td"><p className="font-medium">{m.name}{m.id === me.id && <span className="text-silt-soft"> (you)</span>}</p><p className="text-xs text-silt-soft">{m.email}</p></td>
@@ -74,8 +74,7 @@ export default function TeamPage() {
                 </select>
                 <p className="mt-1 max-w-xs text-xs text-silt-soft">{ROLE_HELP[m.role]}</p>
               </td>
-              <td className="td">{fmtDate(m.lastLoginAt)}{m.mustChangePassword && <p className="text-xs text-amber-700">Hasn't chosen a password yet</p>}</td>
-              <td className="td">{m.twoFactorEnabled ? <span className="text-palm-dark">On</span> : <span className="text-silt-soft">Off</span>}{m.lockedUntil && new Date(m.lockedUntil) > new Date() && <p className="text-xs text-red-700">Locked</p>}</td>
+              <td className="td">{fmtDate(m.lastLoginAt)}{m.mustChangePassword && <p className="text-xs text-amber-700">Hasn't chosen a password yet</p>}{m.lockedUntil && new Date(m.lockedUntil) > new Date() && <p className="text-xs text-red-700">Locked</p>}</td>
               <td className="td">
                 {m.status === "ACTIVE"
                   ? <button disabled={m.id === me.id} onClick={() => confirm(`Suspend ${m.name}? They will be signed out immediately.`) && patch(m.id, { status: "SUSPENDED" })} className="btn-danger">Suspend</button>

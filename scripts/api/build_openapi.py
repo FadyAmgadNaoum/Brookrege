@@ -68,10 +68,10 @@ schemas = {
     "MediaAsset": obj({"id": S(), "kind": S(enum=["IMAGE", "VIDEO"]), "status": S(enum=["PROCESSING", "READY", "FAILED"]), "url": S(), "variants": {"nullable": True, **ref("Variants")},
                        "posterUrl": NS(), "width": I(nullable=True), "height": I(nullable=True), "durationSec": N(nullable=True), "originalName": S(), "alt": NS(), "createdAt": DT, "deletedAt": {**DT, "nullable": True}}),
     "StaffUser": obj({"id": S(), "email": S(), "name": S(), "role": S(enum=ROLES), "status": S(enum=["ACTIVE", "SUSPENDED"]), "lastLoginAt": {**DT, "nullable": True},
-                      "twoFactorEnabled": B, "lockedUntil": {**DT, "nullable": True}, "mustChangePassword": B}),
-    "Me": obj({"user": ref("StaffUser"), "permissions": arr(S()), "restriction": S(enum=["NONE", "PASSWORD_CHANGE", "MFA_SETUP"]), "security": {"type": "object"}}),
-    "SignInResult": obj({"mfaRequired": {**B, "description": "true → send the 6-digit code to /auth/2fa/verify"}, "user": ref("StaffUser")}),
-    "Session": obj({"id": S(), "ip": NS(), "userAgent": NS(), "createdAt": DT, "lastSeenAt": DT, "mfaVerified": B, "current": B}),
+                      "lockedUntil": {**DT, "nullable": True}, "mustChangePassword": B}),
+    "Me": obj({"user": ref("StaffUser"), "permissions": arr(S()), "restriction": S(enum=["NONE", "PASSWORD_CHANGE"]), "security": {"type": "object"}}),
+    "SignInResult": obj({"user": ref("StaffUser"), "permissions": arr(S()), "restriction": S(enum=["NONE", "PASSWORD_CHANGE"])}),
+    "Session": obj({"id": S(), "ip": NS(), "userAgent": NS(), "createdAt": DT, "lastSeenAt": DT, "current": B}),
     "AuditEntry": obj({"id": S(), "action": S(example="property.update"), "entityType": S(), "entityId": NS(), "before": {"nullable": True}, "after": {"nullable": True},
                        "ip": NS(), "createdAt": DT, "actor": {"nullable": True, **obj({"name": S(), "email": S()})}}),
     "EmailConfig": obj({"enabled": B, "provider": S(enum=["sendgrid", "log"]), "fromEmail": S(format="email"), "fromName": S(), "staffRecipients": arr(S(format="email")),
@@ -111,7 +111,7 @@ FILTERS = [{"$ref": f"#/components/parameters/f_{n}"} for n, _ in listing_filter
 P = lambda *names: [{"$ref": f"#/components/parameters/{n}"} for n in names]
 
 ERR = {c: {"description": d, "content": {"application/json": {"schema": ref("Error")}}} for c, d in {
-    "400": "Invalid input (field messages in error.details)", "401": "Not signed in, or the session ended", "403": "Not allowed (role, origin, IP allowlist or a required step: code PASSWORD_CHANGE_REQUIRED / MFA_SETUP_REQUIRED)",
+    "400": "Invalid input (field messages in error.details)", "401": "Not signed in, or the session ended", "403": "Not allowed (role, origin, IP allowlist or a required step: code PASSWORD_CHANGE_REQUIRED)",
     "404": "Not found", "409": "Conflict (e.g. in use)", "413": "Body or file too large", "423": "Account locked after repeated failures", "429": "Too many requests"}.items()}
 ok = lambda schema, desc="OK": {"description": desc, "content": {"application/json": {"schema": schema}}}
 NOC = {"description": "Done (no content)"}
@@ -161,18 +161,13 @@ for p_, s_ in [("/api/health", "Readiness through the load balancer"), ("/health
 
 # ───────────── Admin: auth ─────────────
 T = "Admin — sign-in & account"
-op("post", "/api/admin/auth/login", T, "Sign in (step 1: email + password)", auth=False, body=obj({"email": S(format="email"), "password": S()}, ["email", "password"]), resp=ok(ref("SignInResult")), errors=("400", "401", "403", "423", "429"),
-   desc="Sets the session cookies, or — when two-step verification is on — a short-lived challenge cookie and `mfaRequired: true`.")
-op("post", "/api/admin/auth/2fa/verify", T, "Sign in (step 2: 6-digit code or backup code)", auth=False, body=obj({"code": S(example="123456"), "backupCode": S(example="k7f2-9qxm")}), resp=ok(ref("SignInResult")), errors=("400", "401", "423", "429"))
+op("post", "/api/admin/auth/login", T, "Sign in (email + password)", auth=False, body=obj({"email": S(format="email"), "password": S()}, ["email", "password"]), resp=ok(ref("SignInResult")), errors=("400", "401", "403", "423", "429"),
+   desc="Sets the session cookies.")
 op("post", "/api/admin/auth/refresh", T, "Renew the access cookie", auth=False, status="204", errors=("401",))
 op("post", "/api/admin/auth/logout", T, "Sign out this browser", auth=False, status="204", errors=())
-op("get", "/api/admin/auth/me", T, "Who am I (permissions, required steps, 2FA state)", resp=ok(data(ref("Me"))), errors=())
+op("get", "/api/admin/auth/me", T, "Who am I (permissions, required steps)", resp=ok(data(ref("Me"))), errors=())
 op("post", "/api/admin/auth/password", T, "Change my password", body=obj({"currentPassword": S(), "newPassword": S(minLength=12, maxLength=128)}, ["currentPassword", "newPassword"]), errors=("400", "423"),
    desc="Password policy: 12+ characters, upper/lower case, number, symbol, no common or personal words. Signs out the other browsers.")
-op("post", "/api/admin/auth/2fa/setup", T, "Start setting up 2FA (QR code + secret)", resp=ok(data(obj({"secret": S(), "otpauthUrl": S(), "qrSvg": S()}))), errors=("409",))
-op("post", "/api/admin/auth/2fa/enable", T, "Confirm the first code and turn 2FA on", body=obj({"code": S()}, ["code"]), resp=ok(data(obj({"backupCodes": arr(S())}))), errors=("400",))
-op("post", "/api/admin/auth/2fa/disable", T, "Turn 2FA off (not allowed while it is required for everyone)", body=obj({"password": S(), "code": S()}, ["password", "code"]), errors=("400",))
-op("post", "/api/admin/auth/2fa/backup-codes", T, "Replace my backup codes", body=obj({"code": S()}, ["code"]), resp=ok(data(obj({"backupCodes": arr(S())}))), errors=("400",))
 op("get", "/api/admin/auth/sessions", T, "My signed-in browsers", resp=ok(data(arr(ref("Session")))), errors=())
 op("delete", "/api/admin/auth/sessions/{id}", T, "Sign out one of my browsers", params_=P("id"), status="204", errors=("404",))
 op("post", "/api/admin/auth/sessions/revoke-others", T, "Sign out all my other browsers", resp=ok(data(obj({"ended": I()}))), errors=())
@@ -229,11 +224,10 @@ op("post", "/api/admin/team", T, "Add a staff member (temporary password)", perm
    resp=ok(data(ref("StaffUser")), "Created"), status="201", errors=("400", "409"))
 op("patch", "/api/admin/team/{id}", T, "Change name, role, status or set a temporary password (signs them out)", perm="team:manage", params_=P("id"),
    body=obj({"name": S(), "role": S(enum=ROLES), "status": S(enum=["ACTIVE", "SUSPENDED"]), "password": S()}), resp=ok(data(ref("StaffUser"))), errors=("400", "404"))
-for action, s_ in [("reset-2fa", "Reset someone's two-step verification (lost phone)"), ("unlock", "Unlock a locked account"), ("sign-out", "Sign someone out on every browser")]:
+for action, s_ in [("unlock", "Unlock a locked account"), ("sign-out", "Sign someone out on every browser")]:
     op("post", f"/api/admin/team/{{id}}/{action}", T, s_, perm="team:manage", params_=P("id"), errors=("400", "404"))
 T = "Admin — security"
-op("get", "/api/admin/security/overview", T, "Security overview (2FA use, locks, config checks, recent events)", perm="security:manage", errors=())
-op("put", "/api/admin/security/policy", T, "Require 2FA for everyone (on/off)", perm="security:manage", body=obj({"require2faForAll": B}, ["require2faForAll"]))
+op("get", "/api/admin/security/overview", T, "Security overview (staff, locks, config checks, recent events)", perm="security:manage", errors=())
 op("get", "/api/admin/security/sessions", T, "Everyone signed in now", perm="security:manage", errors=())
 op("delete", "/api/admin/security/sessions/{id}", T, "End someone's session", perm="security:manage", params_=P("id"), status="204", errors=("404",))
 op("get", "/api/admin/security/ip-allowlist", T, "Allowed networks for the admin", perm="security:manage", resp=ok(data(ref("AllowList"))), errors=())
@@ -285,7 +279,7 @@ spec = {
             "REST API of the Brookrege real estate platform (Sohag, Egypt).\n\n"
             "**Public** endpoints (`/api/...`) serve the website: no sign-in, rate-limited, responses cached for up to 30 minutes and cleared on every admin change.\n\n"
             "**Admin** endpoints (`/api/admin/...`) are served only on the admin domain and need a signed-in staff session: HttpOnly cookies set by "
-            "`/auth/login` (+ `/auth/2fa/verify`). Requests must come from the admin app's origin (Origin / Sec-Fetch-Site checked), and may be limited "
+            "`/auth/login`. Requests must come from the admin app's origin (Origin / Sec-Fetch-Site checked), and may be limited "
             "to allowed networks. Each endpoint lists the permission it needs; roles: SUPER_ADMIN (all), CONTENT_ADMIN (listings, catalog, media, leads, "
             "analytics), MODERATOR (leads, listing lifecycle).\n\n"
             "**Errors** always have the shape `{ \"error\": { \"code\", \"message\", \"details\"? } }` with a plain-English message.\n\n"

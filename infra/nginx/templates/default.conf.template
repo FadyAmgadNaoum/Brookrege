@@ -45,7 +45,7 @@ limit_req_zone $browse_limit_key zone=pages:10m  rate=10r/s;   # page loads
 limit_req_zone $browse_limit_key zone=api:10m    rate=20r/s;   # public API
 limit_req_zone $browse_limit_key zone=search:10m rate=5r/s;    # listing search / map / summaries (database-heavy)
 limit_req_zone $binary_remote_addr zone=leads:10m  rate=5r/m;    # inquiry and "add your property" forms
-limit_req_zone $binary_remote_addr zone=auth:10m   rate=10r/m;   # admin sign-in and 2FA
+limit_req_zone $binary_remote_addr zone=auth:10m   rate=10r/m;   # admin sign-in
 limit_req_zone $binary_remote_addr zone=admin:10m  rate=30r/s;   # admin API
 limit_conn_zone $browse_limit_key zone=perip:10m;
 
@@ -183,7 +183,7 @@ server {
   include /etc/nginx/snippets/security.conf;
   add_header X-Robots-Tag "noindex, nofollow" always;
   include /etc/nginx/snippets/site-access.${SITE_ACCESS}.conf;
-  # Access control for the admin is done by the app (IP allowlist, 2FA) and, recommended, Cloudflare Access.
+  # Access control for the admin is done by the app (IP allowlist, account lockout) and, recommended, Cloudflare Access.
 
   limit_conn perip 30;
   client_max_body_size 300m; # bulk upload: 20 photos × 15 MB, or one 95 MB video

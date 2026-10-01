@@ -23,7 +23,7 @@ end of this page.
 
 **Session 2 — owning the system (90 min)**
 - Team: adding and suspending staff, what to do when someone leaves (ch. 11).
-- Security: 2FA (optional, recommended for super admins), backup codes stored offline, recognising phishing calls (ch. 2, 13;
+- Security: strong unique passwords in a password manager, recognising phishing calls (ch. 2, 13;
   `docs/security/STAFF-TRAINING.md`).
 - Privacy requests and retention — the owner's legal duties under the PDPL (ch. 14).
 - What the owner must keep safe: the backup private key, the Cloudflare and GitHub accounts, registrar login.
@@ -34,7 +34,7 @@ backup key is kept (without showing it).
 
 ## 2. Admins (staff)
 
-**Session 1 — listings (2 h):** signing in, first password, 2FA (ch. 2) · adding a listing with photos and video,
+**Session 1 — listings (2 h):** signing in, first password (ch. 2) · adding a listing with photos and video,
 the listing rules (rent = apartments and shops; sale = developer or resale) · good photos · publishing, renewing,
 sold, archive (ch. 4–6) · catalog for content admins (ch. 9).
 
@@ -47,7 +47,7 @@ reports one problem through the right channel.
 
 **Check (15 min each):** from a blank screen, publish a complete listing with photos and coordinates; move an
 inquiry to "Viewing booked" with a note; renew an expiring listing; explain what to do if someone phones asking
-for their 2FA code. Pass = done without help.
+for their password. Pass = done without help.
 
 ## 3. Developers
 

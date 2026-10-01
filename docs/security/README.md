@@ -2,7 +2,7 @@
 
 | Document | What it covers |
 |---|---|
-| [ACCOUNT-SECURITY.md](ACCOUNT-SECURITY.md) | Staff accounts: password policy, 2FA, backup codes, lockout, sessions, IP allowlist, admin origin checks |
+| [ACCOUNT-SECURITY.md](ACCOUNT-SECURITY.md) | Staff accounts: password policy, lockout, sessions, IP allowlist, admin origin checks |
 | [DATA-PROTECTION.md](DATA-PROTECTION.md) | Encryption in transit and at rest, secrets, security headers, production start-up checks |
 | [INPUT-VALIDATION-AUDIT.md](INPUT-VALIDATION-AUDIT.md) | Every input reviewed (SQL injection, XSS, uploads…), findings fixed and accepted |
 | [INFRASTRUCTURE.md](INFRASTRUCTURE.md) | Cloudflare, firewall (and the Docker/UFW trap), nginx limits, SSH, kernel — with the ordered switch-on checklist |
@@ -19,7 +19,7 @@ The code and scripts are done; these need a person with access to the real accou
 
 1. Provision servers and run the checklist in `INFRASTRUCTURE.md` §1 (Cloudflare, firewall, origin pulls), then `verify-infra.sh` with no failures.
 2. Generate and store the production secrets (`KEY-ROTATION.md`), the backup key pair (`BACKUPS.md`); run one restore drill.
-3. Sign in as the first super admin, set up 2FA, save backup codes; create staff accounts.
+3. Sign in as the first super admin, choose your own password; create staff accounts.
 4. Lawyer review of the privacy page and the licensing/transfer questions (`PRIVACY.md`, top).
 5. Fill in the contacts in `INCIDENT-RESPONSE.md` §1; run the staff training (`STAFF-TRAINING.md`).
 6. Commit `package-lock.json` (run `npm install` once with internet access) so CI uses `npm ci` and scans the exact dependency tree.

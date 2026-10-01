@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # EMERGENCY: sign every staff member out of the admin, immediately (suspected account compromise).
 # Ends all server-side sessions and refresh tokens; the next admin request of every browser gets 401.
-# Everyone signs in again with password + 2FA. Nothing else changes. Recorded in the activity log.
+# Everyone signs in again with their password. Nothing else changes. Recorded in the activity log.
 #
 #   bash scripts/ops/revoke-all-sessions.sh                                        # single server (docker-compose.prod.yml)
 #   COMPOSE="docker compose -f infra/servers/vps1/docker-compose.yml --env-file .env.cluster" bash scripts/ops/revoke-all-sessions.sh

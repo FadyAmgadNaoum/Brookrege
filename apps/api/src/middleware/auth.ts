@@ -5,7 +5,6 @@ import { env } from "../config/env";
 import { AppError, forbidden, unauthorized } from "../lib/errors";
 import { logger } from "../lib/logger";
 import { prisma } from "../lib/prisma";
-import { getSecurityPolicy } from "../lib/securitySettings";
 import { ACCESS_COOKIE } from "../modules/auth/cookies";
 import { endedMessage, revokeSessions } from "../modules/auth/auth.service";
 
@@ -33,13 +32,12 @@ async function authenticateAsync(req: Request, _res: Response) {
   } catch {
     throw unauthorized("Your session expired. Sign in again.");
   }
-  // Only session access tokens: the 2FA challenge token (audience "brookrege-mfa") or any other
-  // token signed with the same secret is rejected here explicitly.
+  // Only session access tokens: any other token signed with the same secret (it would carry an audience) is rejected.
   if (!claims.sid || (claims as { aud?: unknown }).aud !== undefined) throw unauthorized();
 
   const s = await prisma.adminSession.findUnique({
     where: { id: claims.sid },
-    include: { user: { select: { id: true, email: true, role: true, status: true, twoFactorEnabled: true, mustChangePassword: true } } },
+    include: { user: { select: { id: true, email: true, role: true, status: true, mustChangePassword: true } } },
   });
   if (!s || s.userId !== claims.sub) throw unauthorized();
 
@@ -50,9 +48,8 @@ async function authenticateAsync(req: Request, _res: Response) {
   }
   if (s.user.status !== "ACTIVE") throw unauthorized("This account is suspended. Contact a super admin.");
 
-  const policy = await getSecurityPolicy();
   req.user = { id: s.user.id, role: s.user.role, email: s.user.email };
-  req.auth = { sessionId: s.id, restriction: restrictionFor(s.user, policy.require2faForAll), mfaVerified: s.mfaVerified };
+  req.auth = { sessionId: s.id, restriction: restrictionFor(s.user) };
 
   if (Date.now() - s.lastSeenAt.getTime() > TOUCH_EVERY_MS) {
     prisma.adminSession.update({ where: { id: s.id }, data: { lastSeenAt: new Date() } }).catch((e) => logger.warn("session_touch_failed", { message: e.message }));
@@ -60,17 +57,12 @@ async function authenticateAsync(req: Request, _res: Response) {
 }
 
 /**
- * Until a person finishes mandatory steps (new password, 2FA enrolment) they can only reach the
- * endpoints for those steps. Everything else answers 403 with a code the admin app understands.
+ * Until a person replaces a temporary password they can only reach the
+ * password endpoints. Everything else answers 403 with a code the admin app understands.
  */
 export const requireFullAccess: RequestHandler = (req, _res, next: NextFunction) => {
-  const r = req.auth?.restriction ?? "NONE";
-  if (r === "NONE") return next();
-  next(
-    r === "PASSWORD_CHANGE"
-      ? new AppError(403, "PASSWORD_CHANGE_REQUIRED", "Choose a new password to continue.")
-      : new AppError(403, "MFA_SETUP_REQUIRED", "Set up two-step verification to continue."),
-  );
+  if ((req.auth?.restriction ?? "NONE") === "NONE") return next();
+  next(new AppError(403, "PASSWORD_CHANGE_REQUIRED", "Choose a new password to continue."));
 };
 
 export const requirePermission =

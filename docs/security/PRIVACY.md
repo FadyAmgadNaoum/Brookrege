@@ -31,7 +31,7 @@ Cookies: one language cookie (`bk-locale`), the theme choice in `localStorage`, 
 | Deleted automatically after 24 months | Job `privacy_retention`, nightly at 04:10 (Cairo), one server at a time (advisory lock). Anonymizes leads whose `updatedAt` is older than the retention period: name/phone → `[removed]`, email, message, staff note → empty, `anonymizedAt` set. Staff notes are also removed from past activity-log entries for those leads (status history stays). |
 | Delivery records deleted, IPs erased after 12 months | Same job: `NotificationLog` rows deleted; `AuditLog.ip` and `userAgent` blanked. The activity log is append-only (database trigger); these clean-ups are the only sanctioned changes and use the trigger's maintenance switch inside the same transaction. |
 | Access, copy, correction, deletion within 30 days | Admin › **Privacy** (super admins only, `privacy:manage`). Search by phone in any format (`010…`, `+2010…`, `002010…`) or email → see everything → **Download a copy** (JSON) or **Erase** (type `ERASE` to confirm). Correction: edit the lead, or erase and ask them to send it again. |
-| Staff access protected | Password policy, 2FA (mandatory for super admins), sessions, IP allowlist — `ACCOUNT-SECURITY.md`. |
+| Staff access protected | Password policy, account lockout, sessions, IP allowlist — `ACCOUNT-SECURITY.md`. |
 | Encrypted in transit, database unreachable, encrypted backups | `INFRASTRUCTURE.md`, `DATA-PROTECTION.md`, `BACKUPS.md`. |
 
 Retention periods are editable in Admin › Privacy › Retention (leads 6–120 months, logs 3–36). **If you change them, update the numbers on the public privacy page** (`apps/web/lib/i18n/ar.ts` and `en.ts`, key `privacy`).

@@ -8,7 +8,7 @@ export interface Session {
   user: { id: string; name: string; email: string; role: Role };
   permissions: Permission[];
   restriction: Restriction;
-  security: { twoFactorEnabled: boolean; twoFactorRequired: boolean; backupCodesLeft: number; passwordChangedAt: string | null; sessionIdleMinutes: number };
+  security: { passwordChangedAt: string | null; sessionIdleMinutes: number };
 }
 
 const Ctx = createContext<(Session & { reload: () => Promise<void> }) | null>(null);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { passwordProblems, passwordStrength, lockUntilAfterFailure, sessionState, requires2fa, restrictionFor, minutesLeft } from "../src/security";
+import { passwordProblems, passwordStrength, lockUntilAfterFailure, sessionState, restrictionFor, minutesLeft } from "../src/security";
 import { can } from "../src/permissions";
 
 test("password policy accepts a strong passphrase", () => {
@@ -48,16 +48,9 @@ test("session state: 1-hour idle timeout and absolute expiry", () => {
   assert.equal(sessionState({ ...base, lastSeenAt: now, revokedAt: now }, 60, now), "revoked");
 });
 
-test("2FA requirement and restrictions", () => {
-  assert.equal(requires2fa("SUPER_ADMIN", false), false, "optional unless the policy says otherwise");
-  assert.equal(requires2fa("CONTENT_ADMIN", false), false);
-  assert.equal(requires2fa("MODERATOR", true), true);
-  assert.equal(requires2fa("SUPER_ADMIN", true), true);
-  assert.equal(restrictionFor({ role: "SUPER_ADMIN", twoFactorEnabled: false, mustChangePassword: false }, false), "NONE");
-  assert.equal(restrictionFor({ role: "SUPER_ADMIN", twoFactorEnabled: false, mustChangePassword: false }, true), "MFA_SETUP");
-  assert.equal(restrictionFor({ role: "SUPER_ADMIN", twoFactorEnabled: true, mustChangePassword: false }, false), "NONE");
-  assert.equal(restrictionFor({ role: "CONTENT_ADMIN", twoFactorEnabled: false, mustChangePassword: true }, true), "PASSWORD_CHANGE", "password first");
-  assert.equal(restrictionFor({ role: "CONTENT_ADMIN", twoFactorEnabled: false, mustChangePassword: false }, false), "NONE");
+test("restrictions: only a temporary password must be replaced first", () => {
+  assert.equal(restrictionFor({ mustChangePassword: true }), "PASSWORD_CHANGE");
+  assert.equal(restrictionFor({ mustChangePassword: false }), "NONE");
 });
 
 test("security permissions are super-admin only", () => {

@@ -40,13 +40,12 @@ When unsure, treat it as the higher level.
 
 ### A. A staff account is (maybe) compromised
 1. Admin › Team › the person › **Sign out everywhere**, then **Suspend** (or reset their password — they must choose a new one at next sign-in).
-2. Reset their 2FA (Team › Reset 2FA) if the phone/authenticator may be affected.
-3. Several accounts, or a super admin: `bash scripts/ops/revoke-all-sessions.sh` — everyone is signed out immediately.
-4. Review what they did: Activity log filtered by that person, last 30 days (exports, erasures, deletions, team and security changes).
-5. If sign-ins came from unexpected places, turn on the **IP allowlist** (Admin › Security › Network) for the office/home networks.
+2. Several accounts, or a super admin: `bash scripts/ops/revoke-all-sessions.sh` — everyone is signed out immediately.
+3. Review what they did: Activity log filtered by that person, last 30 days (exports, erasures, deletions, team and security changes).
+4. If sign-ins came from unexpected places, turn on the **IP allowlist** (Admin › Security › Network) for the office/home networks.
 
 ### B. A secret leaked (env file, API key, database password, backup key)
-Follow `KEY-ROTATION.md` for that secret — rotate **first**, investigate after. A leaked `SETTINGS_ENCRYPTION_KEY` together with a database copy exposes 2FA secrets and provider keys: rotate the key, then reset every staff member's 2FA and replace the provider keys.
+Follow `KEY-ROTATION.md` for that secret — rotate **first**, investigate after. A leaked `SETTINGS_ENCRYPTION_KEY` together with a database copy exposes the email/SMS provider keys: rotate the key, then replace the provider keys.
 Committed to Git? Rotate anyway — removing it from history is not enough (clones and caches exist). CI's secret scanner (gitleaks) should have flagged it; find out why it didn't.
 
 ### C. A server is compromised (unknown processes, changed files, unexpected SSH keys or users)
@@ -71,9 +70,9 @@ Committed to Git? Rotate anyway — removing it from history is not enough (clon
 2. Restore the most recent good backup into a **scratch** database first (`scripts/ops/restore-drill.sh`), check it, then restore to production (`BACKUPS.md`). Cluster: restore to the primary, then re-initialise the replica (`scripts/cluster/reinit-replica.sh`).
 3. Re-apply erasure requests made after that backup (Activity log › "Privacy requests") — see `PRIVACY.md`.
 
-### G. Locked out of the admin (IP allowlist mistake, lost 2FA)
+### G. Locked out of the admin (IP allowlist mistake, forgotten password)
 - IP allowlist: set `ADMIN_IP_ALLOWLIST_BYPASS=true` in the env file, restart the API, fix the list, set it back to `false`, restart. The Security page warns while the bypass is on.
-- A super admin lost their 2FA device and backup codes: another super admin resets it (Team › Reset 2FA). The **only** super admin: on the server, `docker compose exec postgres psql …` → `UPDATE "User" SET "twoFactorEnabled"=false, "totpSecret"=NULL, "totpPendingSecret"=NULL WHERE email='…'; DELETE FROM "BackupCode" WHERE "userId"=(SELECT id FROM "User" WHERE email='…');` — they must set 2FA up again at next sign-in (super admins are always required to). Record this in the timeline.
+- A super admin forgot the password: another super admin sets a temporary one (Team). The **only** super admin: on the server, `bash scripts/ops/reset-admin-access.sh their@email` prints a temporary password. Record this in the timeline.
 
 ### H. Someone reports a vulnerability
 Thank them, don't threaten. Reproduce, fix, deploy, then reply. See `SECURITY.md` at the repository root.

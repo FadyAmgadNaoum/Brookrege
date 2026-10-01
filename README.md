@@ -109,7 +109,7 @@ bash scripts/cluster/run-local-drill.sh
 
 ## Security
 
-Phase 3 hardening (2FA, sessions, encryption, firewall, Cloudflare, privacy, incident response): start at
+Phase 3 hardening (sign-in protection, sessions, encryption, firewall, Cloudflare, privacy, incident response): start at
 [`docs/security/README.md`](docs/security/README.md) — it also lists the steps that need a person before launch.
 Report vulnerabilities as described in [`SECURITY.md`](SECURITY.md).
 

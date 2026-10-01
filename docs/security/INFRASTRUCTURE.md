@@ -11,7 +11,7 @@ Everything here is scripted; each script is idempotent (safe to run again).
 | nginx | rate & connection limits per visitor, timeouts, size limits, probe blocking, catch-all for unknown hosts | `infra/nginx/templates/default.conf.template` |
 | SSH | keys only, `deploy` user only, modern ciphers, fail2ban + recidive | `infra/provision/00-harden.sh` |
 | Kernel | SYN cookies, no redirects/source routing, BPF/ptrace/dmesg restrictions | `/etc/sysctl.d/90-brookrege.conf` (from `00-harden.sh`) |
-| Application | 2FA, sessions, IP allowlist, origin checks — see `ACCOUNT-SECURITY.md` | API |
+| Application | Lockout, sessions, IP allowlist, origin checks — see `ACCOUNT-SECURITY.md` | API |
 
 ## 1. Switch-on checklist (do it in this order)
 
@@ -52,12 +52,12 @@ What `apply.sh` configures, and why:
   2. block `/api/admin` on the public hostname (nginx also returns 404 there — defense in depth);
   3. block HTTP methods we don't use (TRACE, CONNECT, WebDAV …);
   4. **managed challenge** for the admin hostname from outside Egypt — staff abroad still get in after the challenge.
-- **Rate limiting** (Free: one rule, 10-second window): sign-in, 2FA, inquiry and submission endpoints, 5 requests / 10 s per IP → blocked for 10 s. On Pro: 10 / minute, blocked 10 minutes. nginx and the API have their own, stricter limits behind it (below).
+- **Rate limiting** (Free: one rule, 10-second window): sign-in, inquiry and submission endpoints, 5 requests / 10 s per IP → blocked for 10 s. On Pro: 10 / minute, blocked 10 minutes. nginx and the API have their own, stricter limits behind it (below).
 - **Managed WAF**: Free includes the *Cloudflare Free Managed Ruleset* automatically (high-impact CVEs). The full *Cloudflare Managed Ruleset* and *OWASP Core Ruleset* need Pro; `--plan pro` deploys both.
 - **Bot Fight Mode** on. If an uptime monitor or partner integration gets challenged, allow its IP with the spare custom rule rather than turning this off.
 - **DDoS**: Cloudflare's network-layer and HTTP DDoS protection is always on for proxied records, on every plan — nothing to configure. The firewall step (§1.8) is what stops attackers from simply hitting the origin IP instead.
 
-**Recommended (free, not scripted): Cloudflare Access (Zero Trust) in front of `admin.`** — staff sign in with a one-time email code before the admin app even loads. It adds a second, independent gate to the app's own password + 2FA. Set it up in the Zero Trust dashboard: Access › Applications › Self-hosted › `admin.brookrege.com`, policy "Emails ending in @your-company" or a list of staff emails. Keep `/api/health` public if an uptime monitor checks the admin host.
+**Recommended (free, not scripted): Cloudflare Access (Zero Trust) in front of `admin.`** — staff sign in with a one-time email code before the admin app even loads. It adds a second, independent gate to the app's own password sign-in. Set it up in the Zero Trust dashboard: Access › Applications › Self-hosted › `admin.brookrege.com`, policy "Emails ending in @your-company" or a list of staff emails. Keep `/api/health` public if an uptime monitor checks the admin host.
 
 **Keep the origin IP secret**: never put the VPS IP in DNS records that aren't proxied (e.g. a `mail` A-record on the same server), in emails' headers, or in public repos. If it ever leaks, step 8 still keeps attackers out.
 

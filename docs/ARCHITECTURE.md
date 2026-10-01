@@ -10,7 +10,7 @@ document. Why things are the way they are: `docs/DECISIONS.md` (numbered decisio
 |---|---|---|---|
 | Public website | `apps/web` | Next.js 14 (app router), Tailwind | Listings, search, map, compounds, projects, inquiry and "add your property" forms. `/ar` and `/en`, light/dark. |
 | Admin dashboard | `apps/admin` | Next.js 14 | Staff UI (English). Every action goes through the API; the admin has no database access of its own. |
-| API | `apps/api` | Express, Prisma, PostgreSQL 15 | Public read API, admin API, sign-in/2FA, media processing, notifications, analytics, privacy tools. |
+| API | `apps/api` | Express, Prisma, PostgreSQL 15 | Public read API, admin API, sign-in, media processing, notifications, analytics, privacy tools. |
 | Worker | `apps/api/src/worker.ts` | same image as the API | Background jobs: emails/SMS, video posters, scheduled reports, clean-ups. |
 | Shared rules | `packages/domain` | plain TypeScript, no dependencies | Listing rules, permissions, password policy, media sizes, expiry — used by all three apps so UI and API agree. |
 | Edge | `infra/nginx`, Cloudflare | nginx 1.27 | TLS, rate limits, micro-cache, security headers, admin/public split. |
@@ -100,7 +100,7 @@ apps/api/src
   modules/
     public/         listings, search, map, compounds, projects, sitemap, inquiries, submissions, view beacon
     admin/          listings, catalog, leads, team, dashboard, settings (mounted under /api/admin)
-    auth/           sign-in, 2FA (TOTP + backup codes), sessions, refresh-token rotation
+    auth/           sign-in, sessions, refresh-token rotation
     security/       lockout, IP allowlist, security policy, session list
     media/          upload → sniff → sharp (3 WebP sizes) → R2 / disk; video posters via the worker
     notifications/  SendGrid / Twilio over fetch, templates, delivery log
@@ -108,13 +108,13 @@ apps/api/src
     privacy/        find / export / erase a person's data, retention clean-up
     jobs/           queue (PostgreSQL table, FOR UPDATE SKIP LOCKED), retries with back-off
   jobs/             scheduler (node-cron, Africa/Cairo) and the nightly expiry
-  lib/              prisma (primary + replica), cache (two-level), metrics registry, audit log, errors, totp…
+  lib/              prisma (primary + replica), cache (two-level), metrics registry, audit log, errors…
   metrics/          Prometheus metrics and database gauges
 ```
 
 **Data model** (`apps/api/prisma/schema.prisma`): `Property` (with `PropertyMedia` → `MediaAsset`), `Region`,
 `Compound`, `Project`, `Inquiry`, `PropertySubmission`, `PropertyViewDaily`, `User`, `AdminSession`,
-`RefreshToken`, `BackupCode`, `AuditLog` (append-only, enforced by a database trigger), `Setting`, `Job`,
+`RefreshToken`, `AuditLog` (append-only, enforced by a database trigger), `Setting`, `Job`,
 `NotificationTemplate`, `NotificationLog`, `ReportSchedule`.
 
 **Scheduled work** (Cairo time): listing expiry 02:00 · media clean-up 03:30 · personal-data retention 04:10 ·
@@ -126,7 +126,7 @@ once across all servers (PostgreSQL advisory locks).
 Cloudflare WAF and bot rules → origin accepts Cloudflare only (firewall + optional authenticated origin pulls) →
 nginx rate limits and probe blocking → API rate limits, zod validation on every input, upload sniffing →
 admin: origin check, `__Host-` SameSite=Strict cookies, server-side sessions (60 min idle, 12 h max), lockout,
-2FA, optional IP allowlist, role permissions from `packages/domain` → audit log of every change → encrypted
+optional IP allowlist, role permissions from `packages/domain` → audit log of every change → encrypted
 backups, encrypted provider keys. Full description: `docs/security/README.md`.
 
 ## 6. Operations

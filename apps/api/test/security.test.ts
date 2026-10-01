@@ -2,93 +2,33 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
-import { saveIpAllowlist, saveSecurityPolicy } from "../src/lib/securitySettings";
-import { base32Encode, base32Decode, totpAt } from "../src/lib/totp";
-import { app, codeFor, createUser, loginAs, PASSWORD, resetDb } from "./setup";
+import { saveIpAllowlist } from "../src/lib/securitySettings";
+import { app, createUser, loginAs, PASSWORD, resetDb } from "./setup";
 
 beforeEach(resetDb);
 afterAll(() => prisma.$disconnect());
 
 const login = (agent: ReturnType<typeof request.agent>, email: string, password = PASSWORD) => agent.post("/api/admin/auth/login").send({ email, password });
 
-describe("two-step verification", () => {
-  it("two-step is optional by default; with 'require for everyone' on, it must be set up before anything else", async () => {
-    const u = await createUser("SUPER_ADMIN", "owner@test.local", { with2fa: false });
-    const free = request.agent(app);
-    const first = await login(free, u.email);
-    expect(first.status).toBe(200);
-    expect(first.body.restriction).toBe("NONE");
-    expect((await free.get("/api/admin/properties")).status).toBe(200);
-
-    await saveSecurityPolicy({ require2faForAll: true });
-    const agent = request.agent(app);
-    const res = await login(agent, u.email);
-    expect(res.body.restriction).toBe("MFA_SETUP");
-    expect((await agent.get("/api/admin/properties")).body.error.code).toBe("MFA_SETUP_REQUIRED");
-
-    const setup = await agent.post("/api/admin/auth/2fa/setup");
-    expect(setup.status).toBe(200);
-    expect(setup.body.data.qrSvg).toContain("<svg");
-    const secret = setup.body.data.secret.replace(/ /g, "");
-    expect(base32Encode(base32Decode(secret))).toBe(secret);
-
-    expect((await agent.post("/api/admin/auth/2fa/enable").send({ code: "000000" })).status).toBe(400);
-    const enable = await agent.post("/api/admin/auth/2fa/enable").send({ code: totpAt(secret, Date.now()) });
-    expect(enable.status).toBe(200);
-    expect(enable.body.data.backupCodes).toHaveLength(10);
-    expect((await agent.get("/api/admin/properties")).status).toBe(200);
-    expect(await prisma.backupCode.count()).toBe(10);
+describe("sign-in (email and password only)", () => {
+  it("every role signs in with email and password alone — no code step, no setup step", async () => {
+    for (const role of ["SUPER_ADMIN", "CONTENT_ADMIN", "MODERATOR"] as const) {
+      const u = await createUser(role);
+      const agent = request.agent(app);
+      const res = await login(agent, u.email);
+      expect(res.status).toBe(200);
+      expect(res.body.restriction).toBe("NONE");
+      expect(res.body.mfaRequired).toBeUndefined();
+      expect((await agent.get("/api/admin/auth/me")).body.security).toEqual({ passwordChangedAt: null, sessionIdleMinutes: 60 });
+    }
   });
 
-  it("sign-in asks for the code; wrong codes fail; a used code can't be replayed", async () => {
-    const u = await createUser("SUPER_ADMIN");
-    const a = request.agent(app);
-    expect((await login(a, u.email)).body).toEqual({ mfaRequired: true });
-    expect((await a.get("/api/admin/auth/me")).status).toBe(401); // no session yet
-    expect((await a.post("/api/admin/auth/2fa/verify").send({ code: "123456" })).status).toBe(401);
-    const code = codeFor(u.totp!);
-    expect((await a.post("/api/admin/auth/2fa/verify").send({ code })).status).toBe(200);
-
-    const b = request.agent(app);
-    await login(b, u.email);
-    const replay = await b.post("/api/admin/auth/2fa/verify").send({ code });
-    expect(replay.status).toBe(401);
-  });
-
-  it("the 2FA step can't be skipped by forging or omitting the challenge cookie", async () => {
-    await createUser("SUPER_ADMIN");
-    const res = await request(app).post("/api/admin/auth/2fa/verify").set("Cookie", "bk_mfa=forged.token.here").send({ code: "123456" });
-    expect(res.status).toBe(401);
-  });
-
-  it("backup codes work exactly once", async () => {
-    const u = await createUser("SUPER_ADMIN");
-    const a = request.agent(app);
-    await login(a, u.email);
-    await a.post("/api/admin/auth/2fa/verify").send({ code: codeFor(u.totp!) });
-    const codes: string[] = (await a.post("/api/admin/auth/2fa/backup-codes").send({ code: codeFor(u.totp!, 1) })).body.data.backupCodes;
-    expect(codes).toHaveLength(10);
-
-    const b = request.agent(app);
-    await login(b, u.email);
-    expect((await b.post("/api/admin/auth/2fa/verify").send({ backupCode: codes[0]!.toUpperCase().replace("-", " ") })).status).toBe(200);
-    const c = request.agent(app);
-    await login(c, u.email);
-    expect((await c.post("/api/admin/auth/2fa/verify").send({ backupCode: codes[0] })).status).toBe(401);
-  });
-
-  it("anyone can turn 2FA off unless it's required for everyone; a super admin can reset someone else's", async () => {
-    const { agent, user } = await loginAs("SUPER_ADMIN");
-    await saveSecurityPolicy({ require2faForAll: true });
-    const refused = await agent.post("/api/admin/auth/2fa/disable").send({ password: PASSWORD, code: codeFor(user.totp!, 1) });
-    expect(refused.body.error.code).toBe("MFA_REQUIRED");
-    await saveSecurityPolicy({ require2faForAll: false });
-    const off = await agent.post("/api/admin/auth/2fa/disable").send({ password: PASSWORD, code: codeFor(user.totp!, 1) });
-    expect(off.status).toBe(200);
-    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).twoFactorEnabled).toBe(false);
-    const other = await createUser("CONTENT_ADMIN", "mona@test.local", { with2fa: true });
-    expect((await agent.post(`/api/admin/team/${other.id}/reset-2fa`)).status).toBe(200);
-    expect((await prisma.user.findUniqueOrThrow({ where: { id: other.id } })).twoFactorEnabled).toBe(false);
+  it("the old two-step endpoints are gone", async () => {
+    const { agent } = await loginAs("SUPER_ADMIN");
+    for (const path of ["/2fa/setup", "/2fa/enable", "/2fa/disable", "/2fa/backup-codes", "/2fa/verify"]) {
+      expect((await agent.post(`/api/admin/auth${path}`).send({ code: "123456" })).status).toBe(404);
+    }
+    expect((await agent.put("/api/admin/security/policy").send({ require2faForAll: true })).status).toBe(404);
   });
 });
 
@@ -105,17 +45,6 @@ describe("brute-force protection", () => {
     const { agent } = await loginAs("SUPER_ADMIN");
     await agent.post(`/api/admin/team/${u.id}/unlock`);
     expect((await login(request.agent(app), u.email)).status).toBe(200);
-  });
-
-  it("knowing the password doesn't allow unlimited 2FA guesses", async () => {
-    const u = await createUser("SUPER_ADMIN");
-    let last = 0;
-    for (let i = 0; i < 5; i++) {
-      const a = request.agent(app);
-      await login(a, u.email); // correct password each time…
-      last = (await a.post("/api/admin/auth/2fa/verify").send({ code: "000000" })).status;
-    }
-    expect(last).toBe(423); // …but the failure counter keeps counting
   });
 
   it("unknown emails get the same answer as wrong passwords", async () => {
@@ -240,7 +169,8 @@ describe("activity log", () => {
     const { agent } = await loginAs("SUPER_ADMIN");
     const o = await agent.get("/api/admin/security/overview");
     expect(o.status).toBe(200);
-    expect(o.body.data.counts.required2faMissing).toBe(0);
+    expect(o.body.data.counts.staff).toBe(1);
+    expect(o.body.data.counts).not.toHaveProperty("with2fa");
     expect(o.body.data.checks.length).toBeGreaterThan(3);
     const { agent: content } = await loginAs("CONTENT_ADMIN");
     expect((await content.get("/api/admin/security/overview")).status).toBe(403);

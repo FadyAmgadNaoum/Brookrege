@@ -4,7 +4,7 @@
  *      (Everything keeps working: the old key is still accepted for reading.)
  *   2. Run:  node dist/scripts/rotateEncryptionKey.js
  *   3. Remove SETTINGS_ENCRYPTION_KEY_PREVIOUS and restart.
- * Re-encrypts: provider API keys (email/SMS settings) and every staff member's 2FA secret.
+ * Re-encrypts: provider API keys (email/SMS settings).
  * Safe to run twice — values already under the new key are skipped.
  */
 import type { Prisma } from "@prisma/client";
@@ -32,13 +32,6 @@ async function main() {
     if (touched) await prisma.setting.update({ where: { key }, data: { value: value as Prisma.InputJsonObject } });
   }
 
-  const users = await prisma.user.findMany({ where: { OR: [{ totpSecret: { not: null } }, { totpPendingSecret: { not: null } }] }, select: { id: true, totpSecret: true, totpPendingSecret: true } });
-  for (const u of users) {
-    const data: { totpSecret?: string; totpPendingSecret?: string } = {};
-    if (u.totpSecret) { const n = reseal(u.totpSecret, newKey, old); if (n) data.totpSecret = n; }
-    if (u.totpPendingSecret) { const n = reseal(u.totpPendingSecret, newKey, old); if (n) data.totpPendingSecret = n; }
-    if (Object.keys(data).length) { await prisma.user.update({ where: { id: u.id }, data }); changed += Object.keys(data).length; }
-  }
   console.log(`Re-encrypted ${changed} secret(s) with the new key. You can now remove SETTINGS_ENCRYPTION_KEY_PREVIOUS.`);
 }
 

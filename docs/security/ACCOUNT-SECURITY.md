@@ -4,25 +4,15 @@
 
 | Situation | What happens |
 |---|---|
-| **First sign-in of a new team member** | They must replace the temporary password before anything else. Two-step verification is optional, unless a super admin turns on *Security › Policy › Require two-step verification for everyone*. |
-| **Signing in with two-step verification** | Password, then the 6-digit code from Google Authenticator / Microsoft Authenticator / 1Password (or a backup code). |
-| **Lost phone** | Sign in with a backup code. With no codes left, another super admin uses *Security › Staff accounts › Reset 2FA*. |
-| **5 wrong passwords or codes in a row** | The account locks for 15 minutes, then 30, 60 … up to 24 hours. The person gets an email. A super admin can unlock it. |
+| **Signing in** | Email and password. There is no two-step verification (removed at the owner's request, DECISIONS row 79). |
+| **First sign-in of a new team member** | They must replace the temporary password before anything else. |
+| **Forgotten password** | A super admin sets a new temporary password in *Team*. The only super admin: see "Locked out of the admin" below. |
+| **5 wrong passwords in a row** | The account locks for 15 minutes, then 30, 60 … up to 24 hours. The person gets an email. A super admin can unlock it. |
 | **60 minutes without activity** | Signed out. A warning appears 5 minutes before, with a "Stay signed in" button. Every session also ends after 12 hours regardless. |
-| **Password changed / 2FA turned on or off / role changed / suspended** | Other browsers are signed out at once, not after the token expires. |
+| **Password changed / role changed / suspended** | Other browsers are signed out at once, not after the token expires. |
 | **Security-relevant change to your account** | An email notice ("Your password was changed…") so a takeover can't happen silently. |
 
 ## Rules
-
-**Two-step verification**
-- TOTP (RFC 6238), 6 digits, 30 s, ±30 s clock drift allowed.
-- Each code works once (replay-proof).
-- Secrets are stored AES-256-GCM encrypted.
-- **Optional for every role** (owner's decision, DECISIONS row 78). The policy switch in *Security* makes it required for everyone.
-
-**Backup codes**
-- 10 per person, single-use, bcrypt-hashed, shown once.
-- Creating new ones cancels the old ones.
 
 **Passwords**
 - At least 12 characters, with upper and lower case, a number and a symbol.
@@ -37,7 +27,6 @@
 
 **Brute force**
 - Account lockout is stored in the database, so it works across both app servers.
-- Knowing the password doesn't reset the counter before the 2FA step, so 2FA codes can't be guessed endlessly.
 - Plus a per-address limit (`SIGNIN_RATE_LIMIT`, 10 per 15 min per server), the Nginx `auth` zone, and the Cloudflare rules (Week 11).
 
 **Cookies**
@@ -59,26 +48,23 @@
 
 ## Security page (super admins)
 - Overview:
-  - 2FA coverage;
-  - accounts that must set up 2FA but haven't;
+  - active staff accounts and who is signed in now;
   - failed sign-ins (24 h / 7 days);
   - locked accounts;
-  - the policy switch;
+  - the sign-in rules (timeouts, lockout);
   - server configuration checks (encryption key, secure cookies, HTTPS, timeouts, bypass).
-- Staff accounts: unlock, reset 2FA, sign out everywhere.
+- Staff accounts: unlock, sign out everywhere.
 - Signed in now: every active session (browser, address, last activity), with *End session*.
 - Allowed networks: the IP allowlist.
 - Recent events: the last 50 security events.
 
 ## Upgrading from Phase 2
 All existing sessions end when the migration runs (they have no server-side session record), so everyone signs in once.
-- If two-step verification is required for everyone, they're then asked to set it up.
-- The server needs `SETTINGS_ENCRYPTION_KEY` for this. Production refuses to start without it.
+- The server needs `SETTINGS_ENCRYPTION_KEY` (it encrypts the email/SMS provider keys). Production refuses to start without it.
 
 ## Locked out of the admin (last resort)
 
-When the only super admin forgot the password, or lost both the phone and the backup codes, and nobody else can
-reset it from Admin › Team: on the server, in the project folder, run
-`bash scripts/ops/reset-admin-access.sh owner@brookrege.com` (add `--keep-2fa` to keep 2-step verification).
-It prints a temporary password, unlocks the account, signs out its browsers, forces a new password (and 2-step
-set-up) at the next sign-in, and writes `security.reset_access_from_server` to the activity log.
+When the only super admin forgot the password and nobody else can reset it from Admin › Team: on the server, in
+the project folder, run `bash scripts/ops/reset-admin-access.sh owner@brookrege.com`.
+It prints a temporary password, unlocks the account, signs out its browsers, forces a new password at the next
+sign-in, and writes `security.reset_access_from_server` to the activity log.

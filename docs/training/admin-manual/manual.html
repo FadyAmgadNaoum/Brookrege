@@ -65,7 +65,7 @@
   <h2>What's in this manual</h2>
   <ol>
     <li><span class="n">1</span>Roles: who can do what</li>
-    <li><span class="n">2</span>Signing in and two-step verification</li>
+    <li><span class="n">2</span>Signing in</li>
     <li><span class="n">3</span>Overview</li>
     <li><span class="n">4</span>Listings: add, publish, renew, sell</li>
     <li><span class="n">5</span>Photos and video</li>
@@ -108,12 +108,11 @@
 
 <section class="chapter page">
   <div class="eyebrow">Chapter 2 · everyone</div>
-  <h2>Signing in and two-step verification</h2>
+  <h2>Signing in</h2>
   <h3>Signing in</h3>
   <ol>
     <li>Open <b>https://admin.brookrege.com</b>. You see <span class="ui">Sign in to Brookrege admin</span>.</li>
-    <li>Enter your <span class="ui">Email</span> and <span class="ui">Password</span>, click <span class="ui">Sign in</span>.</li>
-    <li>If two-step verification is on for you, the page changes to <span class="ui">Two-step verification</span>: type the 6-digit code from your authenticator app and click <span class="ui">Sign in</span>. No phone? Click <span class="ui">Use a backup code</span> and type one of your printed codes (each works once).</li>
+    <li>Enter your <span class="ui">Email</span> and <span class="ui">Password</span>, click <span class="ui">Sign in</span>. That's all: there is no code step.</li>
   </ol>
   <h3>First sign-in</h3>
   <p>A super admin gives you a <b>temporary password</b> in person or by phone. After signing in you must choose your own password before you can do anything else.</p>
@@ -123,8 +122,8 @@
     <li>No common words (“password”, “admin”, “brookrege”, “sohag”…), no sequences like 12345 or qwert, no character repeated 4 times, and not your name or email.</li>
     <li>Tip: three unrelated words plus a number and symbol, e.g. <i>Nile-Tea-Window-47!</i> (don't use this one).</li>
   </ul>
-  <h3>Setting up two-step verification</h3>
-  <p><span class="ui">My account</span> › <span class="ui">Two-step verification</span>: scan the QR code with Google Authenticator, Microsoft Authenticator or similar, type the current code to confirm. You then get <b>10 backup codes</b>: print them or keep them in a password manager, not in a photo on the same phone. It's optional for every role; a super admin can require it for everyone in <span class="ui">Security</span>.</p>
+  <h3>Keeping your password safe</h3>
+  <p>Your password is the only key to the admin. Keep it in a password manager, never use it on another site, and never tell it to anyone — Brookrege will never ask for it by phone, WhatsApp or email.</p>
   <h3>Being signed out</h3>
   <ul>
     <li>After <b>60 minutes without activity</b>, and in any case <b>12 hours</b> after signing in, you are signed out and must sign in again.</li>
@@ -265,7 +264,7 @@
   </ol>
   <ul>
     <li><span class="ui">Suspend</span> blocks someone at once (e.g. they left the company) and signs them out everywhere. <span class="ui">Restore access</span> undoes it.</li>
-    <li>The list shows <span class="ui">Last sign-in</span>, <span class="ui">Two-step</span> status and <span class="ui">Locked</span> accounts.</li>
+    <li>The list shows <span class="ui">Last sign-in</span> and <span class="ui">Locked</span> accounts.</li>
     <li><b>When someone leaves:</b> suspend the same day, then check <span class="ui">Security</span> › <span class="ui">Signed in now</span> is clear for them.</li>
   </ul>
 </section>
@@ -288,11 +287,11 @@
   <h2>Security</h2>
   <p>“Who can get in, how, and what happened recently.” Tabs:</p>
   <ul>
-    <li><span class="ui">Overview</span>: anything that <span class="ui">Needs attention</span> (locked accounts, required 2FA not set up) and the <span class="ui">Policy</span> switch <span class="ui">Require two-step verification for everyone</span> (off = optional for everyone).</li>
-    <li><span class="ui">Staff accounts</span>: status of each person, with <span class="ui">Unlock</span>, <span class="ui">Reset 2FA</span> (when someone lost their phone and codes — check it is really them first) and <span class="ui">Sign out everywhere</span>.</li>
+    <li><span class="ui">Overview</span>: active staff accounts, who is signed in now, failed sign-ins, locked accounts, the <span class="ui">Sign-in rules</span> and the server configuration checks.</li>
+    <li><span class="ui">Staff accounts</span>: status of each person, with <span class="ui">Unlock</span> and <span class="ui">Sign out everywhere</span>.</li>
     <li><span class="ui">Signed in now</span>: every signed-in browser; <span class="ui">End session</span> signs one out.</li>
     <li><span class="ui">Allowed networks</span>: limit the admin to the office connection. Only turn this on if the office has a <b>fixed IP address</b> from its provider — most Egyptian home and mobile connections change address. <span class="ui">Add my current address</span> first, so you don't lock yourself out. Saved changes apply on all servers within 15 seconds.</li>
-    <li><span class="ui">Recent events</span>: sign-ins, wrong passwords, locks, 2FA changes, blocked addresses.</li>
+    <li><span class="ui">Recent events</span>: sign-ins, wrong passwords, locks, blocked addresses.</li>
   </ul>
   <div class="warn"><b>Emergency:</b> if you think an account is stolen, use <span class="ui">Sign out everywhere</span> for that person, suspend them in Team, and call the technical contact. Full steps: docs/security/INCIDENT-RESPONSE.md.</div>
 </section>
@@ -315,7 +314,6 @@
   <h2>My account</h2>
   <ul>
     <li><span class="ui">Password</span>: change it (current password required).</li>
-    <li><span class="ui">Two-step verification</span>: turn on (chapter 2), <span class="ui">Create new backup codes</span> (the old ones stop working; you'll be told when you're running low), or turn off if your role allows.</li>
     <li><span class="ui">Signed-in browsers</span>: every place you are signed in. <span class="ui">Sign out everywhere else</span> after using a shared or lost device.</li>
   </ul>
 </section>
@@ -323,7 +321,7 @@
 <section class="chapter">
   <div class="eyebrow">Chapter 16 · super admins</div>
   <h2>Activity log</h2>
-  <p>A permanent record of every change: who, what, when (e.g. “Published listing”, “Edited listing”, “Updated inquiry”, “Reset two-step verification”). Filter with <span class="ui">Everything</span>, <span class="ui">Listings</span>, <span class="ui">Inquiries</span> and others; <span class="ui">Show changes</span> displays before/after values. Nobody — not even a super admin — can edit or delete entries.</p>
+  <p>A permanent record of every change: who, what, when (e.g. “Published listing”, “Edited listing”, “Updated inquiry”, “Unlocked an account”). Filter with <span class="ui">Everything</span>, <span class="ui">Listings</span>, <span class="ui">Inquiries</span> and others; <span class="ui">Show changes</span> displays before/after values. Nobody — not even a super admin — can edit or delete entries.</p>
 </section>
 
 <section class="chapter page">
@@ -345,7 +343,7 @@
   <table>
     <tr><th>Problem</th><th>What to do</th></tr>
     <tr><td>“Email or password is incorrect.”</td><td>Check caps lock and the email. After 5 tries the account locks — ask a super admin to unlock.</td></tr>
-    <tr><td>Lost phone with the authenticator</td><td>Sign in with a backup code, then set up 2FA again. No codes: a super admin uses <span class="ui">Reset 2FA</span>.</td></tr>
+    <tr><td>Forgot the password</td><td>A super admin sets a temporary one in <span class="ui">Team</span>; you choose your own at the next sign-in.</td></tr>
     <tr><td>Signed out unexpectedly</td><td>Normal after 60 minutes idle or 12 hours. If it happens constantly, tell the super admin.</td></tr>
     <tr><td>A photo was refused</td><td>The message says why: wrong type (HEIC from iPhones — set the camera to “Most compatible”), too large, or not really an image.</td></tr>
     <tr><td>Listing not on the website</td><td>Is it Live and not expired? Wait a minute. Still missing: refresh with Ctrl+F5.</td></tr>
@@ -359,7 +357,7 @@
   <div class="eyebrow">ملحق</div>
   <h2>بطاقة مختصرة — لوحة تحكم <bdi dir="ltr">Brookrege</bdi></h2>
   <ul>
-    <li><b>الدخول:</b> <bdi dir="ltr">admin.brookrege.com</bdi> — البريد وكلمة المرور ثم رمز التطبيق المكوّن من ٦ أرقام. بدون الهاتف: اضغط «<bdi dir="ltr">Use a backup code</bdi>».</li>
+    <li><b>الدخول:</b> <bdi dir="ltr">admin.brookrege.com</bdi> — البريد وكلمة المرور فقط.</li>
     <li><b>كلمة المرور:</b> ١٢ حرفًا على الأقل، بها حرف كبير وصغير ورقم ورمز. لا تشاركها مع أحد أبدًا.</li>
     <li><b>القفل:</b> ٥ محاولات خاطئة تقفل الحساب ١٥ دقيقة. اطلب من المدير «<bdi dir="ltr">Unlock</bdi>».</li>
     <li><b>إضافة عقار:</b> <bdi dir="ltr">Listings</bdi> ← <bdi dir="ltr">Add listing</bdi> ← املأ البيانات ← <bdi dir="ltr">Save and publish</bdi> (يظهر ٣ أشهر).</li>

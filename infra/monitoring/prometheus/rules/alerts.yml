@@ -252,7 +252,7 @@ groups:
   - name: security
     rules:
       - alert: FailedSignInSpike
-        expr: sum(increase(brookrege_auth_events_total{event=~"login_failed|mfa_failed"}[15m])) > 20
+        expr: sum(increase(brookrege_auth_events_total{event="login_failed"}[15m])) > 20
         labels: { severity: warning }
         annotations:
           summary: "{{ $value | humanize }} failed admin sign-ins in 15 minutes (password guessing?)"

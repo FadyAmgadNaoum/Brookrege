@@ -15,7 +15,7 @@ adminTeamRouter.use(requirePermission("team:manage"));
 
 const safe = {
   id: true, email: true, name: true, role: true, status: true, lastLoginAt: true, createdAt: true,
-  twoFactorEnabled: true, lockedUntil: true, mustChangePassword: true,
+  lockedUntil: true, mustChangePassword: true,
 } as const;
 const idParam = z.object({ id: z.string().min(1).max(40) });
 
@@ -74,22 +74,6 @@ adminTeamRouter.patch("/:id", validate(idParam, "params"), validate(patchBody), 
   await audit(req, { action: pw ? "team.update_with_password" : "team.update", entityType: "User", entityId: id, before, after: user });
   if (pw) await securityAlert(user, "A super admin set a new temporary password for your account. You'll be asked to choose your own at next sign-in.", req);
   res.json({ data: user });
-}));
-
-/** Lost phone: turn 2FA off so the person can set it up again (they're asked to if it's required for everyone). */
-adminTeamRouter.post("/:id/reset-2fa", validate(idParam, "params"), asyncHandler(async (req, res) => {
-  const { id } = parsed<typeof idParam>(req, "params");
-  if (id === req.user!.id) throw badRequest("You can't reset your own two-step verification here. Use My account, or ask another super admin.");
-  const user = await prisma.user.findUnique({ where: { id }, select: safe });
-  if (!user) throw notFound("Team member");
-  await prisma.$transaction([
-    prisma.user.update({ where: { id }, data: { twoFactorEnabled: false, twoFactorEnabledAt: null, totpSecret: null, totpPendingSecret: null, totpLastStep: null } }),
-    prisma.backupCode.deleteMany({ where: { userId: id } }),
-  ]);
-  const ended = await revokeSessions({ userId: id }, "2fa_changed");
-  await audit(req, { action: "team.2fa_reset", entityType: "User", entityId: id, after: { sessionsEnded: ended } });
-  await securityAlert(user, "A super admin reset your two-step verification. Set it up again at your next sign-in.", req);
-  res.json({ data: { reset: true } });
 }));
 
 adminTeamRouter.post("/:id/unlock", validate(idParam, "params"), asyncHandler(async (req, res) => {

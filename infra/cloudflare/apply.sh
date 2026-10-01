@@ -67,12 +67,12 @@ JSON
 
 echo "▸ Rate limiting ($PLAN plan)"
 # Free plan: 1 rule, path-only expression, 10-second window and block. Pro: longer windows.
-EXPR_RL='(http.request.uri.path in {"/api/admin/auth/login" "/api/admin/auth/2fa/verify" "/api/inquiries" "/api/submissions"})'
+EXPR_RL='(http.request.uri.path in {"/api/admin/auth/login" "/api/inquiries" "/api/submissions"})'
 if [ "$PLAN" = free ]; then RL='{"characteristics": ["cf.colo.id", "ip.src"], "period": 10, "requests_per_period": 5, "mitigation_timeout": 10}'
 else RL='{"characteristics": ["cf.colo.id", "ip.src"], "period": 60, "requests_per_period": 10, "mitigation_timeout": 600}'; fi
 call PUT "/rulesets/phases/http_ratelimit/entrypoint" "$(cat <<JSON
 { "description": "Brookrege rate limits (infra/cloudflare/apply.sh)",
-  "rules": [ { "description": "Sign-in, 2FA and lead forms", "action": "block", "expression": $(jqs "$EXPR_RL"), "ratelimit": $RL } ] }
+  "rules": [ { "description": "Sign-in and lead forms", "action": "block", "expression": $(jqs "$EXPR_RL"), "ratelimit": $RL } ] }
 JSON
 )"
 

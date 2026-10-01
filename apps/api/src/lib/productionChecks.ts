@@ -24,7 +24,7 @@ export function productionProblems(e: ProdEnv): { errors: string[]; warnings: st
   const lower = e.JWT_ACCESS_SECRET.toLowerCase();
   if (e.JWT_ACCESS_SECRET.length < 48) errors.push("JWT_ACCESS_SECRET must be at least 48 characters in production (generate: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\").");
   if (DEV_MARKERS.some((m) => lower.includes(m))) errors.push("JWT_ACCESS_SECRET is an example/development value.");
-  if (!e.SETTINGS_ENCRYPTION_KEY) errors.push("SETTINGS_ENCRYPTION_KEY is required in production (it encrypts 2FA secrets and provider API keys).");
+  if (!e.SETTINGS_ENCRYPTION_KEY) errors.push("SETTINGS_ENCRYPTION_KEY is required in production (it encrypts the email/SMS provider API keys).");
   else if (DEV_ENCRYPTION_KEYS.includes(e.SETTINGS_ENCRYPTION_KEY.toLowerCase())) errors.push("SETTINGS_ENCRYPTION_KEY is an example/development value.");
   if (e.SETTINGS_ENCRYPTION_KEY && e.SETTINGS_ENCRYPTION_KEY === e.SETTINGS_ENCRYPTION_KEY_PREVIOUS) errors.push("SETTINGS_ENCRYPTION_KEY_PREVIOUS must differ from the current key.");
   if (!e.cookieSecure) errors.push("Session cookies must be Secure in production (remove COOKIE_SECURE=false).");

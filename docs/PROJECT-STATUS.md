@@ -8,7 +8,7 @@
 | Home film (wide film on laptops, portrait film on phones), photo banners on every page | complete | `docs/HOME-FILM.md` |
 | Admin dashboard (listings, media, leads, analytics, team, security, privacy) | complete, restyled | `apps/admin`, manual: `docs/training/admin-manual/` |
 | API, background jobs, email/SMS | complete | `apps/api`, `docs/api/index.html` |
-| Security hardening (2FA, sessions, encryption, firewall, Cloudflare, privacy law) | complete | `docs/security/` |
+| Security hardening (sign-in protection, sessions, encryption, firewall, Cloudflare, privacy law) | complete | `docs/security/` |
 | Three-server setup, database replica, load balancing | complete | `docs/PHASE2-WEEK5.md` |
 | Monitoring, alerts, logs, backups | complete | `docs/operations/MONITORING.md` |
 | Performance (indexes, caching, CDN, load-test scripts) | complete | `docs/operations/PERFORMANCE.md` |

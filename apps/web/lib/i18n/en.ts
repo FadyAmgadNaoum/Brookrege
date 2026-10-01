@@ -248,7 +248,7 @@ export const en: Dict = {
         "Only to contact you about your request and to send a message confirming we received it. We don't sell your details, use them for advertising, or send you marketing messages.",
       ] },
       { h: "Who sees it", p: [
-        "Only the Brookrege staff who answer requests, using accounts protected by a password and two-step verification.",
+        "Only the Brookrege staff who answer requests, using password-protected accounts that lock after repeated wrong attempts.",
         "The text-message and email providers that deliver our messages to you, and Cloudflare, which protects the website and carries data to it encrypted.",
       ] },
       { h: "How long we keep it", p: [

@@ -1,4 +1,3 @@
-import type { Role } from "./permissions";
 
 /* ───────────────────────── Password policy ─────────────────────────
  * Length first (NIST 800-63B), plus a blocklist of predictable passwords and a ban on
@@ -54,7 +53,7 @@ export function passwordStrength(pw: string, ctx: PasswordContext = {}): 0 | 1 |
 }
 
 /* ───────────────────────── Account lockout ─────────────────────────
- * Every 5th consecutive failed password or 2FA code locks the account:
+ * Every 5th consecutive failed password locks the account:
  * 15 min, then 30, 60 … capped at 24 h. Stored in the database, so it holds across app servers.
  */
 export const LOCKOUT_THRESHOLD = 5;
@@ -83,18 +82,10 @@ export function sessionState(s: SessionTimes, idleMinutes: number, now = new Dat
   return "active";
 }
 
-/* ───────────────────────── Two-step verification ───────────────────────── */
-/**
- * Two-step verification is optional for every role (the owner's choice, DECISIONS row 78). Anyone can turn it on
- * in My account; a super admin can make it compulsory for all staff with the "Require for everyone" policy.
- */
-export const requires2fa = (_role: Role, requireForAll: boolean) => requireForAll;
+/* ───────────────────────── Mandatory steps ───────────────────────── */
+/** What a signed-in person may do before they finish mandatory steps (only: replace a temporary password). */
+export type Restriction = "NONE" | "PASSWORD_CHANGE";
 
-/** What a signed-in person may do before they finish mandatory steps. */
-export type Restriction = "NONE" | "PASSWORD_CHANGE" | "MFA_SETUP";
-
-export function restrictionFor(u: { role: Role; twoFactorEnabled: boolean; mustChangePassword: boolean }, requireForAll: boolean): Restriction {
-  if (u.mustChangePassword) return "PASSWORD_CHANGE";
-  if (requires2fa(u.role, requireForAll) && !u.twoFactorEnabled) return "MFA_SETUP";
-  return "NONE";
+export function restrictionFor(u: { mustChangePassword: boolean }): Restriction {
+  return u.mustChangePassword ? "PASSWORD_CHANGE" : "NONE";
 }

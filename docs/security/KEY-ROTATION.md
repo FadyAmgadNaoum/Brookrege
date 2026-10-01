@@ -20,6 +20,6 @@ Rotate straight away if a key may have leaked (for example, a laptop with the en
    ```
    docker compose exec api node dist/scripts/rotateEncryptionKey.js
    ```
-   It re-encrypts every 2FA secret and provider key with the new key. Running it twice is harmless.
+   It re-encrypts every provider key with the new key. Running it twice is harmless.
 4. Remove `SETTINGS_ENCRYPTION_KEY_PREVIOUS` everywhere and restart.
-5. Store the new key in the password manager. **Losing it** means every staff member must set up 2FA again and the provider keys must be re-entered.
+5. Store the new key in the password manager. **Losing it** means the email/SMS provider keys must be re-entered.

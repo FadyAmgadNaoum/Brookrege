@@ -3,7 +3,7 @@ openapi: "3.0.3"
 info:
   title: "Brookrege API"
   version: "1.0.0"
-  description: "REST API of the Brookrege real estate platform (Sohag, Egypt).\n\n**Public** endpoints (`/api/...`) serve the website: no sign-in, rate-limited, responses cached for up to 30 minutes and cleared on every admin change.\n\n**Admin** endpoints (`/api/admin/...`) are served only on the admin domain and need a signed-in staff session: HttpOnly cookies set by `/auth/login` (+ `/auth/2fa/verify`). Requests must come from the admin app's origin (Origin / Sec-Fetch-Site checked), and may be limited to allowed networks. Each endpoint lists the permission it needs; roles: SUPER_ADMIN (all), CONTENT_ADMIN (listings, catalog, media, leads, analytics), MODERATOR (leads, listing lifecycle).\n\n**Errors** always have the shape `{ \"error\": { \"code\", \"message\", \"details\"? } }` with a plain-English message.\n\n**Prices** are EGP. Written content is Arabic first (`title`), English optional (`titleEn`); place names are Latin (`name`) with an Arabic form (`nameAr`)."
+  description: "REST API of the Brookrege real estate platform (Sohag, Egypt).\n\n**Public** endpoints (`/api/...`) serve the website: no sign-in, rate-limited, responses cached for up to 30 minutes and cleared on every admin change.\n\n**Admin** endpoints (`/api/admin/...`) are served only on the admin domain and need a signed-in staff session: HttpOnly cookies set by `/auth/login`. Requests must come from the admin app's origin (Origin / Sec-Fetch-Site checked), and may be limited to allowed networks. Each endpoint lists the permission it needs; roles: SUPER_ADMIN (all), CONTENT_ADMIN (listings, catalog, media, leads, analytics), MODERATOR (leads, listing lifecycle).\n\n**Errors** always have the shape `{ \"error\": { \"code\", \"message\", \"details\"? } }` with a plain-English message.\n\n**Prices** are EGP. Written content is Arabic first (`title`), English optional (`titleEn`); place names are Latin (`name`) with an Arabic form (`nameAr`)."
   contact:
     name: "Brookrege technical team"
     email: "security@brookrege.com"
@@ -179,192 +179,13 @@ paths:
           "$ref": "#/components/responses/E401"
         403:
           "$ref": "#/components/responses/E403"
-  /api/admin/auth/2fa/backup-codes:
-    post:
-      tags:
-        - "Admin — sign-in & account"
-      summary: "Replace my backup codes"
-      operationId: "post_api_admin_auth_2fa_backup_codes"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: "object"
-              properties:
-                code:
-                  type: "string"
-              required:
-                - "code"
-      responses:
-        200:
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                type: "object"
-                properties:
-                  data:
-                    type: "object"
-                    properties:
-                      backupCodes:
-                        type: "array"
-                        items:
-                          type: "string"
-                required:
-                  - "data"
-        400:
-          "$ref": "#/components/responses/E400"
-        401:
-          "$ref": "#/components/responses/E401"
-        403:
-          "$ref": "#/components/responses/E403"
-  /api/admin/auth/2fa/disable:
-    post:
-      tags:
-        - "Admin — sign-in & account"
-      summary: "Turn 2FA off (not allowed while it is required for everyone)"
-      operationId: "post_api_admin_auth_2fa_disable"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: "object"
-              properties:
-                password:
-                  type: "string"
-                code:
-                  type: "string"
-              required:
-                - "password"
-                - "code"
-      responses:
-        200:
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Json"
-        400:
-          "$ref": "#/components/responses/E400"
-        401:
-          "$ref": "#/components/responses/E401"
-        403:
-          "$ref": "#/components/responses/E403"
-  /api/admin/auth/2fa/enable:
-    post:
-      tags:
-        - "Admin — sign-in & account"
-      summary: "Confirm the first code and turn 2FA on"
-      operationId: "post_api_admin_auth_2fa_enable"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: "object"
-              properties:
-                code:
-                  type: "string"
-              required:
-                - "code"
-      responses:
-        200:
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                type: "object"
-                properties:
-                  data:
-                    type: "object"
-                    properties:
-                      backupCodes:
-                        type: "array"
-                        items:
-                          type: "string"
-                required:
-                  - "data"
-        400:
-          "$ref": "#/components/responses/E400"
-        401:
-          "$ref": "#/components/responses/E401"
-        403:
-          "$ref": "#/components/responses/E403"
-  /api/admin/auth/2fa/setup:
-    post:
-      tags:
-        - "Admin — sign-in & account"
-      summary: "Start setting up 2FA (QR code + secret)"
-      operationId: "post_api_admin_auth_2fa_setup"
-      responses:
-        200:
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                type: "object"
-                properties:
-                  data:
-                    type: "object"
-                    properties:
-                      secret:
-                        type: "string"
-                      otpauthUrl:
-                        type: "string"
-                      qrSvg:
-                        type: "string"
-                required:
-                  - "data"
-        409:
-          "$ref": "#/components/responses/E409"
-        401:
-          "$ref": "#/components/responses/E401"
-        403:
-          "$ref": "#/components/responses/E403"
-  /api/admin/auth/2fa/verify:
-    post:
-      tags:
-        - "Admin — sign-in & account"
-      summary: "Sign in (step 2: 6-digit code or backup code)"
-      operationId: "post_api_admin_auth_2fa_verify"
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: "object"
-              properties:
-                code:
-                  type: "string"
-                  example: "123456"
-                backupCode:
-                  type: "string"
-                  example: "k7f2-9qxm"
-      responses:
-        200:
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/SignInResult"
-        400:
-          "$ref": "#/components/responses/E400"
-        401:
-          "$ref": "#/components/responses/E401"
-        423:
-          "$ref": "#/components/responses/E423"
-        429:
-          "$ref": "#/components/responses/E429"
   /api/admin/auth/login:
     post:
       tags:
         - "Admin — sign-in & account"
-      summary: "Sign in (step 1: email + password)"
+      summary: "Sign in (email + password)"
       operationId: "post_api_admin_auth_login"
-      description: "Sets the session cookies, or — when two-step verification is on — a short-lived challenge cookie and `mfaRequired: true`."
+      description: "Sets the session cookies."
       security: []
       requestBody:
         required: true
@@ -412,7 +233,7 @@ paths:
     get:
       tags:
         - "Admin — sign-in & account"
-      summary: "Who am I (permissions, required steps, 2FA state)"
+      summary: "Who am I (permissions, required steps)"
       operationId: "get_api_admin_auth_me"
       responses:
         200:
@@ -2426,7 +2247,7 @@ paths:
     get:
       tags:
         - "Admin — security"
-      summary: "Security overview (2FA use, locks, config checks, recent events)"
+      summary: "Security overview (staff, locks, config checks, recent events)"
       operationId: "get_api_admin_security_overview"
       description: "**Permission:** `security:manage`."
       x-permission: "security:manage"
@@ -2437,38 +2258,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Json"
-        401:
-          "$ref": "#/components/responses/E401"
-        403:
-          "$ref": "#/components/responses/E403"
-  /api/admin/security/policy:
-    put:
-      tags:
-        - "Admin — security"
-      summary: "Require 2FA for everyone (on/off)"
-      operationId: "put_api_admin_security_policy"
-      description: "**Permission:** `security:manage`."
-      x-permission: "security:manage"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: "object"
-              properties:
-                require2faForAll:
-                  type: "boolean"
-              required:
-                - "require2faForAll"
-      responses:
-        200:
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Json"
-        400:
-          "$ref": "#/components/responses/E400"
         401:
           "$ref": "#/components/responses/E401"
         403:
@@ -2780,31 +2569,6 @@ paths:
                     "$ref": "#/components/schemas/StaffUser"
                 required:
                   - "data"
-        400:
-          "$ref": "#/components/responses/E400"
-        404:
-          "$ref": "#/components/responses/E404"
-        401:
-          "$ref": "#/components/responses/E401"
-        403:
-          "$ref": "#/components/responses/E403"
-  /api/admin/team/{id}/reset-2fa:
-    post:
-      tags:
-        - "Admin — team"
-      summary: "Reset someone's two-step verification (lost phone)"
-      operationId: "post_api_admin_team_id_reset_2fa"
-      description: "**Permission:** `team:manage`."
-      x-permission: "team:manage"
-      parameters:
-        - "$ref": "#/components/parameters/id"
-      responses:
-        200:
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Json"
         400:
           "$ref": "#/components/responses/E400"
         404:
@@ -3473,7 +3237,7 @@ components:
           schema:
             "$ref": "#/components/schemas/Error"
     E403:
-      description: "Not allowed (role, origin, IP allowlist or a required step: code PASSWORD_CHANGE_REQUIRED / MFA_SETUP_REQUIRED)"
+      description: "Not allowed (role, origin, IP allowlist or a required step: code PASSWORD_CHANGE_REQUIRED)"
       content:
         application/json:
           schema:
@@ -4182,8 +3946,6 @@ components:
           type: "string"
           format: "date-time"
           nullable: true
-        twoFactorEnabled:
-          type: "boolean"
         lockedUntil:
           type: "string"
           format: "date-time"
@@ -4204,17 +3966,22 @@ components:
           enum:
             - "NONE"
             - "PASSWORD_CHANGE"
-            - "MFA_SETUP"
         security:
           type: "object"
     SignInResult:
       type: "object"
       properties:
-        mfaRequired:
-          type: "boolean"
-          description: "true → send the 6-digit code to /auth/2fa/verify"
         user:
           "$ref": "#/components/schemas/StaffUser"
+        permissions:
+          type: "array"
+          items:
+            type: "string"
+        restriction:
+          type: "string"
+          enum:
+            - "NONE"
+            - "PASSWORD_CHANGE"
     Session:
       type: "object"
       properties:
@@ -4232,8 +3999,6 @@ components:
         lastSeenAt:
           type: "string"
           format: "date-time"
-        mfaVerified:
-          type: "boolean"
         current:
           type: "boolean"
     AuditEntry:

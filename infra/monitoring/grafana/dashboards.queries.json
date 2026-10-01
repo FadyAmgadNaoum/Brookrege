@@ -387,7 +387,7 @@
   "dashboard": "brookrege-security",
   "panel": "Failed sign-ins (1 h)",
   "datasource": "prometheus",
-  "expr": "sum(increase(brookrege_auth_events_total{event=~\"login_failed|mfa_failed\"}[1h])) or vector(0)"
+  "expr": "sum(increase(brookrege_auth_events_total{event=\"login_failed\"}[1h])) or vector(0)"
  },
  {
   "dashboard": "brookrege-security",

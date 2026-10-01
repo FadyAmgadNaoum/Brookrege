@@ -5,7 +5,7 @@ declare global {
     interface Request {
       user?: { id: string; role: Role; email: string };
       /** Set by `authenticate`: the server-side session behind this request. */
-      auth?: { sessionId: string; restriction: Restriction; mfaVerified: boolean };
+      auth?: { sessionId: string; restriction: Restriction };
     }
   }
 }

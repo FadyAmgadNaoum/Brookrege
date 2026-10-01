@@ -9,10 +9,10 @@ import { fmtDate, fmtDateTime } from "@/lib/labels";
 import { useSession } from "@/lib/session";
 import { useFetch } from "@/lib/useFetch";
 
-interface Staff { id: string; name: string; email: string; role: Role; status: string; twoFactorEnabled: boolean; twoFactorRequired: boolean; lockedUntil: string | null; lastLoginAt: string | null; mustChangePassword: boolean; activeSessions: number; backupCodesLeft: number }
+interface Staff { id: string; name: string; email: string; role: Role; status: string; lockedUntil: string | null; lastLoginAt: string | null; mustChangePassword: boolean; activeSessions: number }
 interface Overview {
-  counts: { staff: number; with2fa: number; required2faMissing: number; locked: number; activeSessions: number; failedSignIns24h: number; failedSignIns7d: number };
-  policy: { require2faForAll: boolean; sessionIdleMinutes: number; sessionMaxHours: number };
+  counts: { staff: number; locked: number; activeSessions: number; failedSignIns24h: number; failedSignIns7d: number };
+  policy: { sessionIdleMinutes: number; sessionMaxHours: number };
   ipAllowlist: { enabled: boolean; count: number };
   staff: Staff[];
   checks: { id: string; label: string; ok: boolean; detail: string }[];
@@ -35,25 +35,18 @@ function Stat({ label, value, warn }: { label: string; value: string | number; w
   return <div className="panel p-4"><p className="text-silt-soft">{label}</p><p className={`mt-1 text-2xl font-semibold ${warn ? "text-red-700" : ""}`}>{value}</p></div>;
 }
 
-function OverviewTab({ o, reload }: { o: Overview; reload: () => Promise<void> }) {
-  const [err, setErr] = useState<string | null>(null);
-  const toggle = async () => { setErr(null); try { await api("/security/policy", { method: "PUT", json: { require2faForAll: !o.policy.require2faForAll } }); await reload(); } catch (e) { setErr(errorText(e)); } };
+function OverviewTab({ o }: { o: Overview }) {
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Staff using two-step verification" value={`${o.counts.with2fa} of ${o.counts.staff}`} />
-        <Stat label="Required but not set up" value={o.counts.required2faMissing} warn={o.counts.required2faMissing > 0} />
+        <Stat label="Active staff accounts" value={o.counts.staff} />
+        <Stat label="Signed in now" value={o.counts.activeSessions} />
         <Stat label="Failed sign-ins (24 h / 7 days)" value={`${o.counts.failedSignIns24h} / ${o.counts.failedSignIns7d}`} warn={o.counts.failedSignIns24h >= 20} />
         <Stat label="Locked accounts" value={o.counts.locked} warn={o.counts.locked > 0} />
       </div>
       <section className="panel mt-6 p-5">
-        <h2 className="mb-3 font-semibold">Policy</h2>
-        <ErrorNote message={err} />
-        <label className="flex items-start gap-3">
-          <input type="checkbox" className="mt-1" checked={o.policy.require2faForAll} onChange={toggle} />
-          <span><span className="font-medium">Require two-step verification for everyone</span><span className="block text-sm text-silt-soft">Off: two-step verification is optional — each person can turn it on in My account. On: everyone without it must set it up at their next sign-in.</span></span>
-        </label>
-        <p className="mt-4 text-sm text-silt-soft">Sessions end after {o.policy.sessionIdleMinutes} minutes without activity and after {o.policy.sessionMaxHours} hours in any case. After 5 wrong passwords or codes an account locks for 15 minutes (then 30, 60 …).</p>
+        <h2 className="mb-3 font-semibold">Sign-in rules</h2>
+        <p className="text-sm text-silt-soft">Staff sign in with their email and password. Sessions end after {o.policy.sessionIdleMinutes} minutes without activity and after {o.policy.sessionMaxHours} hours in any case. After 5 wrong passwords an account locks for 15 minutes (then 30, 60 …).</p>
       </section>
       <section className="panel mt-6 p-5">
         <h2 className="mb-3 font-semibold">Server configuration</h2>
@@ -78,19 +71,17 @@ function StaffTab({ o, reload }: { o: Overview; reload: () => Promise<void> }) {
   return (
     <div className="panel overflow-x-auto">
       <ErrorNote message={err} />
-      <table className="w-full min-w-[820px]">
-        <thead><tr><th className="th">Person</th><th className="th">Two-step verification</th><th className="th">Last sign-in</th><th className="th">Status</th><th className="th"><span className="sr-only">Actions</span></th></tr></thead>
+      <table className="w-full min-w-[720px]">
+        <thead><tr><th className="th">Person</th><th className="th">Last sign-in</th><th className="th">Status</th><th className="th"><span className="sr-only">Actions</span></th></tr></thead>
         <tbody>{o.staff.map((s) => {
           const locked = s.lockedUntil && new Date(s.lockedUntil) > new Date();
           return (
             <tr key={s.id}>
               <td className="td"><p className="font-medium">{s.name}{s.id === me.id && <span className="text-silt-soft"> (you)</span>}</p><p className="text-xs text-silt-soft">{s.email}, {s.role.replace("_", " ").toLowerCase()}</p></td>
-              <td className="td">{s.twoFactorEnabled ? <span className="text-palm-dark">On{s.backupCodesLeft <= 3 ? `, ${s.backupCodesLeft} backup codes left` : ""}</span> : s.twoFactorRequired ? <span className="text-red-700">Required, not set up</span> : <span className="text-silt-soft">Off</span>}</td>
               <td className="td">{fmtDate(s.lastLoginAt)}<p className="text-xs text-silt-soft">{s.activeSessions} active session{s.activeSessions === 1 ? "" : "s"}</p></td>
               <td className="td">{s.status === "SUSPENDED" ? "Suspended" : locked ? <span className="text-red-700">Locked until {fmtDateTime(s.lockedUntil!)}</span> : s.mustChangePassword ? "Must choose a password" : "Active"}</td>
               <td className="td space-x-3 whitespace-nowrap text-end">
                 {locked && <button className="text-palm hover:underline" onClick={() => act(`Unlock ${s.name}'s account?`, () => api(`/team/${s.id}/unlock`, { method: "POST" }))}>Unlock</button>}
-                {s.twoFactorEnabled && s.id !== me.id && <button className="text-palm hover:underline" onClick={() => act(`Reset ${s.name}'s two-step verification? Use this when they lose their phone. They'll set it up again at next sign-in.`, () => api(`/team/${s.id}/reset-2fa`, { method: "POST" }))}>Reset 2FA</button>}
                 {s.activeSessions > 0 && s.id !== me.id && <button className="text-red-700 hover:underline" onClick={() => act(`Sign ${s.name} out on every browser?`, () => api(`/team/${s.id}/sign-out`, { method: "POST" }))}>Sign out everywhere</button>}
               </td>
             </tr>
@@ -101,7 +92,7 @@ function StaffTab({ o, reload }: { o: Overview; reload: () => Promise<void> }) {
   );
 }
 
-interface Sess { id: string; ip: string | null; userAgent: string | null; createdAt: string; lastSeenAt: string; mfaVerified: boolean; current: boolean; user: { id: string; name: string; role: Role } }
+interface Sess { id: string; ip: string | null; userAgent: string | null; createdAt: string; lastSeenAt: string; current: boolean; user: { id: string; name: string; role: Role } }
 function SessionsTab() {
   const { data, loading, reload } = useFetch<{ data: Sess[] }>("/security/sessions");
   if (loading && !data) return <Loading />;
@@ -112,7 +103,7 @@ function SessionsTab() {
       <tbody>{data.data.map((s) => (
         <tr key={s.id}>
           <td className="td">{s.user.name}{s.current && <span className="text-silt-soft"> (this browser)</span>}</td>
-          <td className="td">{describeDevice(s.userAgent)}<p className="text-xs text-silt-soft" dir="ltr">{s.ip}{s.mfaVerified ? ", with 2FA" : ""}</p></td>
+          <td className="td">{describeDevice(s.userAgent)}<p className="text-xs text-silt-soft" dir="ltr">{s.ip}</p></td>
           <td className="td">{fmtDateTime(s.lastSeenAt)}<p className="text-xs text-silt-soft">since {fmtDateTime(s.createdAt)}</p></td>
           <td className="td text-end">{!s.current && <button className="text-red-700 hover:underline" onClick={async () => { await api(`/security/sessions/${s.id}`, { method: "DELETE" }); await reload(); }}>End session</button>}</td>
         </tr>
@@ -182,7 +173,7 @@ export default function SecurityPage() {
       <PageHeader title="Security">Who can get in, how, and what happened recently.</PageHeader>
       <Tabs value={tab} onChange={setTab} items={[{ value: "overview", label: "Overview" }, { value: "staff", label: "Staff accounts" }, { value: "sessions", label: "Signed in now" }, { value: "network", label: "Allowed networks" }, { value: "events", label: "Recent events" }]} />
       {loading && !data ? <Loading /> : error ? <ErrorNote message={error} /> : data && (
-        tab === "overview" ? <OverviewTab o={data.data} reload={reload} /> :
+        tab === "overview" ? <OverviewTab o={data.data} /> :
         tab === "staff" ? <StaffTab o={data.data} reload={reload} /> :
         tab === "sessions" ? <SessionsTab /> :
         tab === "network" ? <NetworkTab /> : <EventsTab o={data.data} />

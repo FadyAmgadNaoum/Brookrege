@@ -2,11 +2,9 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import type { AllowEntry } from "./ipAllowlist";
 
-export interface SecurityPolicy { require2faForAll: boolean }
 export interface IpAllowlistSetting { enabled: boolean; entries: AllowEntry[] }
 
 const DEFAULTS = {
-  "security.policy": { require2faForAll: false } as SecurityPolicy,
   "security.ipAllowlist": { enabled: false, entries: [] } as IpAllowlistSetting,
 };
 type Key = keyof typeof DEFAULTS;
@@ -33,8 +31,6 @@ async function set<K extends Key>(key: K, value: (typeof DEFAULTS)[K]) {
   cache.set(key, { at: Date.now(), value });
 }
 
-export const getSecurityPolicy = () => get("security.policy");
-export const saveSecurityPolicy = (v: SecurityPolicy) => set("security.policy", v);
 export const getIpAllowlist = () => get("security.ipAllowlist");
 export const saveIpAllowlist = (v: IpAllowlistSetting) => set("security.ipAllowlist", v);
 

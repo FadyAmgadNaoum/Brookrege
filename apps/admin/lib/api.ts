@@ -15,7 +15,7 @@ let lastActivity = Date.now();
 export const lastApiActivity = () => lastActivity;
 
 /** Endpoints that must never trigger an automatic token refresh (they ARE the sign-in flow). */
-const NO_REFRESH = ["/auth/login", "/auth/refresh", "/auth/logout", "/auth/2fa/verify"];
+const NO_REFRESH = ["/auth/login", "/auth/refresh", "/auth/logout"];
 
 /** Shown once on the sign-in page after the session ends (e.g. the inactivity timeout). */
 export const SIGNIN_NOTICE_KEY = "bk-signin-notice";
@@ -54,8 +54,8 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
   const body = await res.json().catch(() => null);
   if (!res.ok) {
     const code = body?.error?.code as string | undefined;
-    // Mandatory step (new password / 2FA set-up) became required mid-session: ask the layout to show it.
-    if (code === "MFA_SETUP_REQUIRED" || code === "PASSWORD_CHANGE_REQUIRED") window.dispatchEvent(new Event("bk:session-changed"));
+    // Mandatory step (new password) became required mid-session: ask the layout to show it.
+    if (code === "PASSWORD_CHANGE_REQUIRED") window.dispatchEvent(new Event("bk:session-changed"));
     throw new ApiError(res.status, body?.error?.message ?? `Request failed (${res.status}).`, body?.error?.details, code);
   }
   lastActivity = Date.now();

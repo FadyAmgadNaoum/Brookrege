@@ -244,16 +244,10 @@ model User {
   status            UserStatus     @default(ACTIVE)
   lastLoginAt       DateTime?
   /// Phase 3 — account security
-  twoFactorEnabled   Boolean   @default(false)
-  twoFactorEnabledAt DateTime?
-  totpSecret         String?   /// AES-256-GCM sealed (SETTINGS_ENCRYPTION_KEY)
-  totpPendingSecret  String?   /// sealed; set during enrolment until the first code is confirmed
-  totpLastStep       Int?      /// last accepted 30-second step — blocks code replay
   failedLoginCount   Int       @default(0)
   lockedUntil        DateTime?
   passwordChangedAt  DateTime?
   mustChangePassword Boolean   @default(false) /// set when an admin sets/resets the password
-  backupCodes        BackupCode[]
   sessions           AdminSession[]
   refreshTokens     RefreshToken[]
   mediaAssets       MediaAsset[]
@@ -443,18 +437,6 @@ model NotificationLog {
 
 // ─────────────────────────────── Phase 3 ───────────────────────────────
 
-/// One-time 2FA recovery codes (bcrypt-hashed).
-model BackupCode {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  codeHash  String
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-}
-
 /// A signed-in browser. RefreshToken.familyId = AdminSession.id. Checked on every admin request.
 model AdminSession {
   id            String    @id @default(cuid())
@@ -462,12 +444,11 @@ model AdminSession {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   ip            String?
   userAgent     String?
-  mfaVerified   Boolean   @default(false)
   createdAt     DateTime  @default(now())
   lastSeenAt    DateTime  @default(now())
   expiresAt     DateTime  /// absolute limit (SESSION_MAX_HOURS)
   revokedAt     DateTime?
-  revokedReason String?   /// logout | idle | expired | password_changed | 2fa_changed | admin | replay | role_changed
+  revokedReason String?   /// logout | idle | expired | password_changed | admin | replay | role_changed
 
   @@index([userId, revokedAt])
   @@index([revokedAt, lastSeenAt])

@@ -21,7 +21,7 @@ jobs:
     name: Container images (Trivy)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build production images
         run: |
           docker build -q -f apps/api/Dockerfile   -t brookrege-api .
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Start the local stack (demo data)
         run: |
           docker compose up -d --build
@@ -80,7 +80,7 @@ jobs:
     name: Semgrep (static analysis, report only)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Scan
         run: |
           docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest semgrep scan --metrics=off \
@@ -100,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     env: { SNYK_TOKEN: "${{ secrets.SNYK_TOKEN }}" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.SNYK_TOKEN != ''
       - uses: actions/setup-node@v4
         if: env.SNYK_TOKEN != ''

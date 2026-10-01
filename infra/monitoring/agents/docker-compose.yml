@@ -1,0 +1,98 @@
+# Monitoring agents — on EVERY server. Host networking; exporters listen only on MON_BIND
+# (the private address 10.0.0.x in the cluster, 127.0.0.1 on a single server).
+#
+#   cd infra/monitoring/agents
+#   MON_BIND=10.0.0.2 SERVER_NAME=vps2 LOKI_URL=http://10.0.0.1:3100/loki/api/v1/push \
+#     COMPOSE_PROFILES=postgres docker compose --env-file ../../../.env.cluster up -d
+#
+# Profiles per server:  vps1 → postgres,nginx   vps2 → postgres   vps3 → redis   single → postgres,nginx,redis
+name: brookrege-agents
+
+x-defaults: &defaults
+  restart: unless-stopped
+  network_mode: host
+  logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+services:
+  node-exporter:
+    <<: *defaults
+    image: prom/node-exporter:v1.9.1
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=${MON_BIND:?set MON_BIND}:9100
+      - --collector.textfile.directory=/textfile            # backup results (infra/backup/backup.sh)
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|var/lib/docker/.+|var/lib/containers/.+)($|/)
+    volumes:
+      - /:/host:ro,rslave
+      - /var/lib/node_exporter/textfile:/textfile:ro
+
+  cadvisor:
+    <<: *defaults
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    privileged: true
+    devices: ["/dev/kmsg"]
+    command:
+      - --listen_ip=${MON_BIND:?set MON_BIND}
+      - --port=9338
+      - --docker_only=true
+      - --housekeeping_interval=30s
+      - --store_container_labels=false
+      - --disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,process,referenced_memory,resctrl,sched,tcp,udp,percpu,disk
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+  alloy:
+    <<: *defaults
+    image: grafana/alloy:v1.10.2
+    command: [run, --server.http.listen-addr=127.0.0.1:12345, --storage.path=/var/lib/alloy/data, /etc/alloy/config.alloy]
+    environment:
+      LOKI_URL: ${LOKI_URL:?set LOKI_URL, e.g. http://10.0.0.1:3100/loki/api/v1/push}
+      SERVER_NAME: ${SERVER_NAME:?set SERVER_NAME (vps1, vps2, vps3 or web1)}
+    volumes:
+      - ../alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
+      - alloy-data:/var/lib/alloy/data
+
+  postgres-exporter:
+    <<: *defaults
+    profiles: [postgres]
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    command:
+      - --web.listen-address=${MON_BIND}:9187
+      - --collector.stat_statements
+      - --collector.long_running_transactions
+    environment:
+      # Read-only monitoring role created by scripts/ops/create-monitoring-role.sh (pg_monitor).
+      DATA_SOURCE_URI: ${MON_PG_HOST:-127.0.0.1}:5432/${DB_NAME}?sslmode=disable
+      DATA_SOURCE_USER: brookrege_monitor
+      DATA_SOURCE_PASS_FILE: /run/secrets/pg_monitor_password
+    volumes:
+      - ${SECRETS_DIR:-/etc/brookrege/monitoring/secrets}/pg_monitor_password:/run/secrets/pg_monitor_password:ro
+
+  nginx-exporter:
+    <<: *defaults
+    profiles: [nginx]
+    image: nginx/nginx-prometheus-exporter:1.4.2
+    command:
+      - --nginx.scrape-uri=http://127.0.0.1:8088/stub_status
+      - --web.listen-address=${MON_BIND}:9113
+
+  redis-exporter:
+    <<: *defaults
+    profiles: [redis]
+    image: oliver006/redis_exporter:v1.75.0
+    environment:
+      REDIS_ADDR: redis://${MON_REDIS_HOST:-127.0.0.1}:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD (same as the app servers use)}
+      REDIS_EXPORTER_WEB_LISTEN_ADDRESS: ${MON_BIND}:9121
+
+volumes:
+  alloy-data:

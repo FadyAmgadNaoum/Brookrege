@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push: { branches: [main, develop] }
+  pull_request: { branches: [main, develop] }
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env: { POSTGRES_USER: brookrege, POSTGRES_PASSWORD: brookrege, POSTGRES_DB: brookrege_test }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U brookrege" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://brookrege:brookrege@localhost:5432/brookrege_test?schema=public
+      DIRECT_DATABASE_URL: postgresql://brookrege:brookrege@localhost:5432/brookrege_test?schema=public
+      JWT_ACCESS_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      TEST_REDIS_URL: redis://localhost:6379/1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install dependencies
+        # npm ci once package-lock.json is committed (recommended); npm install until then.
+        run: if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+      - name: Domain rules (unit tests)
+        run: npm run build:domain && npm test -w @brookrege/domain
+      - name: Require committed migrations
+        run: |
+          test -d apps/api/prisma/migrations || { echo "::error::No migrations. Run: npx -w @brookrege/api prisma migrate dev --name init — then commit apps/api/prisma/migrations"; exit 1; }
+      - name: Migrations match the Prisma schema
+        run: cd apps/api && python3 ../../scripts/check-migrations.py
+      - name: Database schema
+        run: npx -w @brookrege/api prisma migrate deploy
+      - name: Type-check all workspaces
+        run: npm run typecheck
+      - name: API unit + integration tests
+        run: sudo apt-get install -y ffmpeg >/dev/null && npm test -w @brookrege/api
+      - name: Admin app unit tests
+        run: npm test -w @brookrege/admin
+      - name: Lint frontends
+        run: npm run lint -w @brookrege/web && npm run lint -w @brookrege/admin
+      - name: Build everything
+        run: npm run build
+      - name: Dependency audit (fail on high)
+        run: npm audit --audit-level=high --omit=dev
+
+  # Phase 3: fast security gates on every push / PR (the slower scans are in security.yml).
+  security-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # full history: secrets in old commits count too
+      - name: Secret scan (gitleaks, whole history)
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 detect --source /repo --config /repo/.gitleaks.toml --redact --no-banner -v
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Resolve the dependency tree (lockfile only, no install scripts)
+        run: '[ -f package-lock.json ] || npm install --package-lock-only --ignore-scripts --no-audit --no-fund'
+      - name: Vulnerable dependencies + committed secrets (Trivy)
+        # Trivy's own GitHub actions were compromised in March 2026, so we run a release the maintainers
+        # list as safe, as a container (docs/security/SECURITY-TESTING.md). Pin by digest when you can.
+        run: docker run --rm -v "$PWD:/src:ro" aquasec/trivy:0.69.3 fs --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --skip-dirs /src/node_modules /src
+      - name: nginx configuration (offline checker)
+        run: |
+          for up in single-server multi-server; do for tls in "TLSv1.2 TLSv1.3" TLSv1.3; do for pull in off on; do for access in public staging; do
+            python3 scripts/check-nginx.py infra/nginx/templates/default.conf.template --root infra/nginx --upstreams infra/nginx/upstreams/$up.conf \
+              PUBLIC_DOMAIN=example.com ADMIN_DOMAIN=admin.example.com "TLS_PROTOCOLS=$tls" ORIGIN_PULL=$pull SITE_ACCESS=$access
+          done; done; done; done
+          python3 scripts/check-nginx.py infra/nginx/cluster-local.conf --root infra/nginx
+      - name: nginx -t in the production nginx image (every combination)
+        run: bash scripts/ci/nginx-test.sh
+      - name: nginx behaviour (cache, security, limits, stale-on-error) with stand-in app servers
+        run: |
+          bash scripts/ci/nginx-behaviour.sh
+          SITE_ACCESS=staging bash scripts/ci/nginx-behaviour.sh
+      - name: Docker Compose files are valid
+        run: bash scripts/ci/compose-check.sh
+      - name: Monitoring configuration (Prometheus rules + tests, Alertmanager, Alloy, dashboards, runbook links)
+        run: bash scripts/monitoring/check.sh
+      - name: API reference matches the code (every route documented, generated files up to date)
+        run: |
+          python3 scripts/api/routes.py --check
+          python3 scripts/api/build_openapi.py
+          git diff --exit-code -- docs/api || { echo "::error::docs/api is out of date — run python3 scripts/api/build_openapi.py and commit"; exit 1; }
+      - name: Shell scripts parse and pass ShellCheck (warnings and errors)
+        run: |
+          for f in $(git ls-files '*.sh'); do bash -n "$f" || exit 1; done
+          git ls-files -z '*.sh' | xargs -0 shellcheck -S warning
+      - name: Dockerfiles copy each app's public folder (icons, images, films)
+        run: python3 scripts/ci/dockerfile-check.py
+      - name: One-command installer, dry run (settings, secrets, validation)
+        run: bash tests/install/test-install.sh
+      - name: Deploy and rollback scripts (stand-in docker/git/ssh; success, failures, automatic rollback, three servers)
+        run: bash tests/deploy/test-deploy.sh
+
+  docker:
+    # Pull requests: prove the production images still build. Pushes to main: release.yml builds, tags and
+    # publishes them (after this workflow passes), so they aren't built twice.
+    needs: verify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production images
+        run: |
+          docker build -f apps/api/Dockerfile -t brookrege-api .
+          docker build -f apps/web/Dockerfile -t brookrege-web --build-arg NEXT_PUBLIC_API_URL=https://example.com .
+          docker build -f apps/admin/Dockerfile -t brookrege-admin .
+          docker build -t brookrege-backup infra/backup
+          docker build -t brookrege-pgbouncer infra/pgbouncer

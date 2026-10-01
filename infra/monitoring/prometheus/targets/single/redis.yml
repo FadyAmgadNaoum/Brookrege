@@ -1,0 +1,2 @@
+- targets: ["127.0.0.1:9121"]
+  labels: { server: web1 }

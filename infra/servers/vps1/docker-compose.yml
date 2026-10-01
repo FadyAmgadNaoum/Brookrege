@@ -1,0 +1,90 @@
+# VPS1 — load balancer + primary database + pgBouncer + backups. Public IP + private 10.0.0.1.
+# Monitoring (Phase 4) runs next to it: infra/monitoring/docker-compose.yml and infra/monitoring/agents.
+# Run from this folder:  docker compose --env-file ../../../.env.cluster up -d --build
+# Every private service binds to the WireGuard address 10.0.0.1 only (never to the public interface).
+name: brookrege-vps1
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    entrypoint: ["/opt/brookrege/entrypoint.sh"]
+    environment:
+      PG_ROLE: ${VPS1_PG_ROLE:-primary}          # becomes "replica" after a failover + reinit
+      PRIMARY_HOST: ${VPS1_PG_PRIMARY_HOST:-}      # only used as replica
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD}
+      REPLICATION_SLOT: ${VPS1_REPLICATION_SLOT:-vps2}  # as primary: slot created for VPS2; as replica: its own slot
+      PG_SHARED_BUFFERS: 1GB                        # ~25% of an 8 GB VPS
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../../postgres/entrypoint.sh:/opt/brookrege/entrypoint.sh:ro
+      - ../../postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ../../postgres/10-replication.sh:/docker-entrypoint-initdb.d/10-replication.sh:ro
+    ports: ["10.0.0.1:5432:5432"]                 # replication + reinit over the private network only
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"], interval: 10s, retries: 10 }
+    shm_size: 256mb
+
+  pgbouncer:
+    image: ${IMAGE_REGISTRY:-brookrege}/pgbouncer:${IMAGE_TAG:-local}   # CI-built image (scripts/deploy); "build" is for local use
+    build: ../../pgbouncer
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      PRIMARY_HOST: postgres        # the failover script rewrites this in /state/targets.env
+      REPLICA_HOST: 10.0.0.2
+      POOL_SIZE: "25"
+      PGPASSWORD: ${DB_PASSWORD}    # lets the failover script run verification queries inside the container
+    volumes: [pgbouncer-state:/state]
+    ports: ["10.0.0.1:6432:6432"]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "127.0.0.1:8088:8088"]   # 8088 = stub_status for the monitoring exporter
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      TLS_PROTOCOLS: ${TLS_PROTOCOLS:-TLSv1.2 TLSv1.3}   # "TLSv1.3" once Cloudflare proxies the site
+      ORIGIN_PULL: ${ORIGIN_PULL:-off}                   # "on" = accept only Cloudflare (docs/security/INFRASTRUCTURE.md)
+      SITE_ACCESS: ${SITE_ACCESS:-public}                 # "staging" = password + noindex (docker-compose.staging.yml)
+    volumes:
+      - ../../nginx/templates:/etc/nginx/templates:ro
+      - ../../nginx/snippets:/etc/nginx/snippets:ro
+      - /etc/brookrege/cloudflare:/etc/nginx/cloudflare:ro   # Cloudflare IP ranges + origin-pull CA (infra/cloudflare/sync-ips.sh)
+      - ../../nginx/upstreams/multi-server.conf:/etc/nginx/upstreams.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+      - /srv/brookrege/uploads:/data/uploads:ro     # NFS-exported to VPS2/VPS3 (until R2 in Week 6)
+
+  backup:
+    image: ${IMAGE_REGISTRY:-brookrege}/backup:${IMAGE_TAG:-local}   # CI-built image (scripts/deploy); "build" is for local use
+    build: ../../backup
+    restart: unless-stopped
+    # Nightly ENCRYPTED backup (infra/backup/backup.sh). Only the public key is on this server.
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT}
+      TZ: Africa/Cairo
+      # Optional off-site copy to Cloudflare R2 (encrypted files only):
+      BACKUP_REMOTE: ${BACKUP_REMOTE:-}
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${BACKUP_R2_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${BACKUP_R2_SECRET_ACCESS_KEY:-}
+      RCLONE_CONFIG_R2_ENDPOINT: https://${R2_ACCOUNT_ID:-none}.r2.cloudflarestorage.com
+    volumes:
+      - /srv/brookrege/backups:/backups
+      - /var/lib/node_exporter/textfile:/metrics   # backup result for monitoring (BackupTooOld alert)
+    depends_on: { postgres: { condition: service_healthy } }
+
+volumes:
+  pgdata:
+  pgbouncer-state:

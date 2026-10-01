@@ -1,0 +1,4 @@
+- targets: ["10.0.0.1:9187"]
+  labels: { server: vps1, db_role: primary }
+- targets: ["10.0.0.2:9187"]
+  labels: { server: vps2, db_role: replica }

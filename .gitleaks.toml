@@ -1,0 +1,19 @@
+# Secret scanning config (gitleaks). Default rules + an allowlist for files that hold
+# deliberately fake, local-only values. Never add a real secret's file here — rotate the secret instead.
+title = "Brookrege gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Local/test-only placeholder values"
+paths = [
+  '''(^|/)docker-compose(\.cluster)?\.yml$''',
+  '''(^|/)\.env[^/]*\.example$''',
+  '''(^|/)apps/api/vitest\.config\.ts$''',
+  '''(^|/)apps/api/test/''',
+  '''(^|/)packages/domain/test/''',
+  '''(^|/)\.github/workflows/''',
+  '''(^|/)docs/''',
+  '''(^|/)package-lock\.json$''',
+]

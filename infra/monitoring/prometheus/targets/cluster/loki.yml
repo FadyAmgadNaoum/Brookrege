@@ -1,0 +1,2 @@
+- targets: ["10.0.0.1:3100"]
+  labels: { server: vps1 }

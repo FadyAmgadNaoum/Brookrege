@@ -1,0 +1,35 @@
+# Weekly dependency updates (Phase 3 · vulnerability management). Security fixes arrive as soon as
+# GitHub publishes an advisory, independent of this schedule. Minor/patch updates are grouped into
+# one PR per ecosystem to keep the review load small; CI (tests + security gates) must pass before merge.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "05:00", timezone: Africa/Cairo }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Framework majors are planned work, not drive-by updates.
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: prisma
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: docker
+    directories: [/apps/api, /apps/web, /apps/admin, /infra/backup, /infra/pgbouncer]
+    schedule: { interval: weekly, day: monday, time: "05:00", timezone: Africa/Cairo }
+    groups:
+      base-images:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "05:00", timezone: Africa/Cairo }

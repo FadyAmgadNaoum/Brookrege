@@ -1,0 +1,6 @@
+- targets: ["10.0.0.1:9338"]
+  labels: { server: vps1 }
+- targets: ["10.0.0.2:9338"]
+  labels: { server: vps2 }
+- targets: ["10.0.0.3:9338"]
+  labels: { server: vps3 }

@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { @apply bg-limestone text-silt antialiased; }
+  body { @apply font-sans text-sm; }
+  :focus-visible { @apply outline outline-2 outline-offset-2 outline-palm; }
+  h1 { @apply font-serif; }
+}
+
+@layer components {
+  .field { @apply h-10 w-full rounded-md border border-reed bg-white px-3 text-sm focus:border-palm focus:outline-none focus:ring-2 focus:ring-palm/20 disabled:bg-limestone; }
+  .label { @apply mb-1 block text-xs font-medium text-silt-soft; }
+  .btn { @apply inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60; }
+  .btn-primary { @apply btn rounded-[3px] bg-gold text-gold-on hover:bg-gold-strong; }
+  .btn-quiet { @apply btn border border-reed bg-white hover:border-palm; }
+  .btn-danger { @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50; }
+  .panel { @apply rounded-tile border border-reed bg-white; }
+  .th { @apply px-4 py-2.5 text-start text-xs font-medium text-silt-soft; }
+  .td { @apply border-t border-reed px-4 py-3 align-top; }
+  .wordmark { @apply font-serif text-lg uppercase tracking-[0.2em]; }
+}
+
+/* Print / Save as PDF (analytics): hide navigation, keep charts and tables. */
+@media print {
+  aside, nav { display: none !important; }
+  main { height: auto !important; overflow: visible !important; padding: 0 !important; }
+  .panel { break-inside: avoid; border-color: #ccc; }
+  body { background: #fff; }
+}

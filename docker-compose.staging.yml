@@ -1,0 +1,27 @@
+# Staging: the single-server production setup with test settings, on its own small VPS.
+# Same images as production (the web image is built for the staging address: WEB_VARIANT=-staging).
+#   docker compose -f docker-compose.prod.yml -f docker-compose.staging.yml --env-file .env.staging up -d
+# (scripts/deploy/deploy.sh --target staging does this for you.) Guide: docs/operations/STAGING.md
+services:
+  api:
+    environment:
+      APP_ENV: staging                     # same start-up security checks as production
+      SEED_DEMO: ${STAGING_SEED_DEMO:-true} # demo listings; the demo admin uses SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+
+  web:
+    environment:
+      SITE_URL: https://${PUBLIC_DOMAIN}
+      SITE_INDEXING: "off"                 # robots.txt blocks everything; pages say noindex
+
+  nginx:
+    environment:
+      SITE_ACCESS: staging                 # password on both sites + X-Robots-Tag: noindex
+    volumes:
+      - /etc/brookrege/staging:/etc/nginx/staging:ro   # htpasswd (docs/operations/STAGING.md)
+
+  backup:
+    environment:
+      BACKUP_KEEP_DAILY: "3"               # test data: a few days are enough
+      BACKUP_KEEP_MONTHLY: "0"

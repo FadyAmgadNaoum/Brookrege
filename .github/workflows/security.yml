@@ -1,0 +1,113 @@
+name: Security scans
+
+# Slower scans: weekly, on every push to main, and on demand (Actions › Security scans › Run workflow).
+# Fast gates (secrets, dependency CVEs, nginx) run on every PR in ci.yml.
+on:
+  schedule: [{ cron: "23 2 * * 1" }]   # Mondays 02:23 UTC
+  push: { branches: [main] }
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.69.3   # see ci.yml for why this is a pinned container, not an action
+
+jobs:
+  images:
+    name: Container images (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production images
+        run: |
+          docker build -q -f apps/api/Dockerfile   -t brookrege-api .
+          docker build -q -f apps/web/Dockerfile   -t brookrege-web --build-arg NEXT_PUBLIC_API_URL=https://example.com .
+          docker build -q -f apps/admin/Dockerfile -t brookrege-admin .
+          docker build -q -t brookrege-backup infra/backup
+          docker build -q -t brookrege-pgbouncer infra/pgbouncer
+      - name: Scan (fail on fixable CRITICAL; report HIGH)
+        run: |
+          fail=0
+          for img in brookrege-api brookrege-web brookrege-admin brookrege-backup brookrege-pgbouncer; do
+            echo "::group::$img"
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
+              image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed "$img"
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
+              image --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 --quiet "$img" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
+      - name: Dockerfile / compose misconfigurations (report only)
+        run: docker run --rm -v "$PWD:/src:ro" "$TRIVY_IMAGE" config --severity HIGH,CRITICAL /src || true
+
+  dast:
+    name: OWASP ZAP baseline (running stack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the local stack (demo data)
+        run: |
+          docker compose up -d --build
+          for _ in $(seq 90); do
+            curl -fsS http://localhost:4000/health >/dev/null && curl -fsS http://localhost:3000 >/dev/null && curl -fsS http://localhost:3001/login >/dev/null && break
+            sleep 5
+          done
+          docker compose ps
+      - name: ZAP baseline — website, admin, API
+        run: |
+          mkdir -p zap && chmod 777 zap && cp .zap/rules.tsv zap/
+          rc=0
+          for t in "web http://localhost:3000/ar" "admin http://localhost:3001/login" "api http://localhost:4000/api/properties"; do
+            read -r name url <<< "$t"
+            set -- "$name" "$url"
+            docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+              zap-baseline.py -t "$2" -c rules.tsv -r "$1.html" -J "$1.json" -I -m 3 || rc=1
+          done
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: zap-reports, path: zap/, retention-days: 30 }
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+
+  sast:
+    name: Semgrep (static analysis, report only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest semgrep scan --metrics=off \
+            --config p/owasp-top-ten --config p/typescript --config p/nodejsscan --config p/secrets \
+            --exclude node_modules --exclude '*.test.ts' --json -o semgrep.json || true
+          python3 - <<'PY'
+          import json
+          r = json.load(open("semgrep.json"))["results"]
+          print(f"{len(r)} finding(s)")
+          for f in r: print(f"::warning file={f['path']},line={f['start']['line']}::{f['check_id']}: {f['extra']['message'][:180]}")
+          PY
+      - uses: actions/upload-artifact@v4
+        with: { name: semgrep, path: semgrep.json, retention-days: 30 }
+
+  snyk:
+    name: Snyk (optional — runs when the SNYK_TOKEN secret is set)
+    runs-on: ubuntu-latest
+    env: { SNYK_TOKEN: "${{ secrets.SNYK_TOKEN }}" }
+    steps:
+      - uses: actions/checkout@v4
+        if: env.SNYK_TOKEN != ''
+      - uses: actions/setup-node@v4
+        if: env.SNYK_TOKEN != ''
+        with: { node-version: 20 }
+      - if: env.SNYK_TOKEN != ''
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+          npx --yes snyk@1 test --all-projects --severity-threshold=high
+      - if: env.SNYK_TOKEN == ''
+        run: echo "SNYK_TOKEN not set — skipped. Trivy, npm audit and Dependabot cover dependencies meanwhile."

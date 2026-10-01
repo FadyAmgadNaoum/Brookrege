@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Brookrege Admin Manual</title>
+<style>
+  /* Built into a PDF by scripts/docs/build_manual.py (Chromium). __FONT_DIR__ is replaced with the font folder. */
+  @font-face { font-family: Plex; src: url("__FONT_DIR__/IBMPlexSansArabic-Regular.ttf"); font-weight: 400; }
+  @font-face { font-family: Plex; src: url("__FONT_DIR__/IBMPlexSansArabic-Medium.ttf"); font-weight: 500; }
+  @font-face { font-family: Plex; src: url("__FONT_DIR__/IBMPlexSansArabic-SemiBold.ttf"); font-weight: 600; }
+  :root { --palm: #41594F; --palm-tint: #E3EAE5; --silt: #22302C; --soft: #56625D; --sand: #A8875A; --sand-tint: #F1EADF; --line: #D9DDD5; --lime: #F2F3EF; }
+  @page { size: A4; margin: 18mm 17mm 20mm; }
+  html { font-family: Plex, sans-serif; font-size: 10.2pt; line-height: 1.5; color: var(--silt); }
+  body { margin: 0; }
+  h1, h2, h3 { font-weight: 600; line-height: 1.25; text-wrap: balance; }
+  h2 { font-size: 16pt; color: var(--palm); margin: 0 0 6pt; padding-top: 2pt; break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 14pt 0 4pt; break-after: avoid; }
+  p { margin: 0 0 6pt; }
+  ul, ol { margin: 0 0 8pt; padding-inline-start: 16pt; }
+  li { margin-bottom: 2.5pt; }
+  section.chapter { margin-top: 22pt; padding-top: 10pt; border-top: 1pt solid var(--line); }
+  section.chapter:not(.page) { break-inside: avoid; }
+  section.page { break-before: page; border-top: 0; margin-top: 0; }
+  .ui { font-weight: 600; color: var(--palm); }            /* on-screen labels */
+  .eyebrow { font-size: 8.5pt; letter-spacing: .08em; text-transform: uppercase; color: var(--sand); font-weight: 600; margin-bottom: 2pt; }
+  .who { display: inline-block; font-size: 8.5pt; background: var(--palm-tint); color: var(--palm); border-radius: 3pt; padding: 1pt 6pt; margin-bottom: 8pt; }
+  .tip, .warn { border-inline-start: 3pt solid var(--palm); background: var(--palm-tint); padding: 6pt 9pt; margin: 8pt 0; border-radius: 0 4pt 4pt 0; break-inside: avoid; }
+  .warn { border-color: var(--sand); background: var(--sand-tint); }
+  .tip b, .warn b { font-weight: 600; }
+  table { width: 100%; break-inside: auto; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.3pt; }
+  th { text-align: start; font-weight: 600; background: var(--lime); border-bottom: 1pt solid var(--line); padding: 4pt 6pt; }
+  tr { break-inside: avoid; }
+  td { border-bottom: .6pt solid var(--line); padding: 4pt 6pt; vertical-align: top; }
+  .yes { color: var(--palm); font-weight: 600; } .no { color: #9a9f9b; }
+  /* cover */
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .cover .mark { width: 22mm; height: 22mm; }
+  .cover h1 { font-size: 30pt; margin: 18mm 0 4mm; color: var(--silt); }
+  .cover .sub { font-size: 13pt; color: var(--soft); max-width: 120mm; }
+  .cover .meta { font-size: 9pt; color: var(--soft); border-top: 1pt solid var(--line); padding-top: 6pt; }
+  .toc ol { list-style: none; padding: 0; columns: 2; column-gap: 12mm; }
+  .toc li { break-inside: avoid; padding: 3pt 0; border-bottom: .6pt solid var(--line); }
+  .toc .n { display: inline-block; width: 18pt; color: var(--sand); font-weight: 600; }
+  .flow { display: flex; gap: 4pt; align-items: center; flex-wrap: wrap; margin: 6pt 0 10pt; font-size: 9pt; }
+  .flow span { border: 1pt solid var(--line); border-radius: 12pt; padding: 2pt 8pt; background: #fff; }
+  .flow i { color: var(--sand); font-style: normal; }
+  .ar { direction: rtl; text-align: right; font-size: 11pt; }
+  .ar h2 { color: var(--palm); }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div>
+    <svg class="mark" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#41594F"/><path d="M15 35 32 20l17 15" fill="none" stroke="#F2F3EF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 45h22" stroke="#A8875A" stroke-width="5.5" stroke-linecap="round"/></svg>
+    <h1>Brookrege Admin Manual</h1>
+    <p class="sub">How to run the website day to day: listings, photos, inquiries, reports, the team and account security.</p>
+  </div>
+  <div class="meta">For staff of Brookrege, Sohag · Admin address: <b>https://admin.brookrege.com</b> · Version 1.0 (Phase 4, September 2026)<br>
+  Questions about this manual or the system: the technical contact listed in docs/security/INCIDENT-RESPONSE.md.</div>
+</div>
+
+<section class="chapter page toc">
+  <div class="eyebrow">Contents</div>
+  <h2>What's in this manual</h2>
+  <ol>
+    <li><span class="n">1</span>Roles: who can do what</li>
+    <li><span class="n">2</span>Signing in and two-step verification</li>
+    <li><span class="n">3</span>Overview</li>
+    <li><span class="n">4</span>Listings: add, publish, renew, sell</li>
+    <li><span class="n">5</span>Photos and video</li>
+    <li><span class="n">6</span>Media library</li>
+    <li><span class="n">7</span>Inquiries</li>
+    <li><span class="n">8</span>Property submissions</li>
+    <li><span class="n">9</span>Regions, compounds &amp; projects</li>
+    <li><span class="n">10</span>Analytics &amp; reports</li>
+    <li><span class="n">11</span>Team</li>
+    <li><span class="n">12</span>Notifications (email and SMS)</li>
+    <li><span class="n">13</span>Security</li>
+    <li><span class="n">14</span>Privacy requests</li>
+    <li><span class="n">15</span>My account</li>
+    <li><span class="n">16</span>Activity log</li>
+    <li><span class="n">17</span>Daily and weekly routine</li>
+    <li><span class="n">18</span>When something goes wrong</li>
+    <li><span class="n">19</span>بطاقة مختصرة بالعربية</li>
+  </ol>
+  <div class="tip"><b>How to read it.</b> Words in <span class="ui">green</span> are exactly what you see on the screen (buttons, tabs, fields). Each chapter starts with a label saying which roles can use that screen. If a menu item is missing for you, your role doesn't include it.</div>
+</section>
+
+<section class="chapter page">
+  <div class="eyebrow">Chapter 1</div>
+  <h2>Roles: who can do what</h2>
+  <p>Every staff member has one of three roles. A super admin sets it in <span class="ui">Team</span>. The menu on the left only shows what your role allows.</p>
+  <table>
+    <tr><th>What</th><th>Super admin</th><th>Content admin</th><th>Moderator</th></tr>
+    <tr><td>See listings, the overview, the media library</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+    <tr><td>Publish, renew, take offline, mark as sold</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+    <tr><td>Add and edit listings, upload photos</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">No</td></tr>
+    <tr><td>Delete listings</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">No</td></tr>
+    <tr><td>Regions, compounds &amp; projects</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">View only</td></tr>
+    <tr><td>Inquiries and property submissions (view and update)</td><td class="yes">Yes</td><td class="yes">Yes</td><td>Inquiries yes; submissions view only</td></tr>
+    <tr><td>Analytics &amp; reports</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">No</td></tr>
+    <tr><td>Team, Notifications, Security, Privacy, Activity log</td><td class="yes">Yes</td><td class="no">No</td><td class="no">No</td></tr>
+  </table>
+  <p>On the Team screen the roles are described as: <span class="ui">Super admin</span> — “Everything, including team and activity log”; <span class="ui">Content admin</span> — “Listings, photos, compounds, leads — no team or system settings”; <span class="ui">Moderator</span> — “View listings, renew or take them offline, handle inquiries — no editing or deleting”.</p>
+  <div class="tip"><b>Keep super admins few.</b> Two people is enough: the owner and one trusted manager. Everyone else works as a content admin or moderator.</div>
+</section>
+
+<section class="chapter page">
+  <div class="eyebrow">Chapter 2 · everyone</div>
+  <h2>Signing in and two-step verification</h2>
+  <h3>Signing in</h3>
+  <ol>
+    <li>Open <b>https://admin.brookrege.com</b>. You see <span class="ui">Sign in to Brookrege admin</span>.</li>
+    <li>Enter your <span class="ui">Email</span> and <span class="ui">Password</span>, click <span class="ui">Sign in</span>.</li>
+    <li>If two-step verification is on for you, the page changes to <span class="ui">Two-step verification</span>: type the 6-digit code from your authenticator app and click <span class="ui">Sign in</span>. No phone? Click <span class="ui">Use a backup code</span> and type one of your printed codes (each works once).</li>
+  </ol>
+  <h3>First sign-in</h3>
+  <p>A super admin gives you a <b>temporary password</b> in person or by phone. After signing in you must choose your own password before you can do anything else.</p>
+  <h3>Password rules</h3>
+  <ul>
+    <li>At least <b>12 characters</b> (up to 128), with a lowercase letter, an uppercase letter, a number and a symbol.</li>
+    <li>No common words (“password”, “admin”, “brookrege”, “sohag”…), no sequences like 12345 or qwert, no character repeated 4 times, and not your name or email.</li>
+    <li>Tip: three unrelated words plus a number and symbol, e.g. <i>Nile-Tea-Window-47!</i> (don't use this one).</li>
+  </ul>
+  <h3>Setting up two-step verification</h3>
+  <p><span class="ui">My account</span> › <span class="ui">Two-step verification</span>: scan the QR code with Google Authenticator, Microsoft Authenticator or similar, type the current code to confirm. You then get <b>10 backup codes</b>: print them or keep them in a password manager, not in a photo on the same phone. Super admins must have two-step verification; a super admin can require it for everyone in <span class="ui">Security</span>.</p>
+  <h3>Being signed out</h3>
+  <ul>
+    <li>After <b>60 minutes without activity</b>, and in any case <b>12 hours</b> after signing in, you are signed out and must sign in again.</li>
+    <li>Signing out elsewhere, a role change or a suspended account also signs you out at once.</li>
+  </ul>
+  <h3>Locked account</h3>
+  <p>After <b>5 wrong passwords or codes in a row</b> the account locks for 15 minutes; every further 5 mistakes double the wait (30 min, 1 h … up to 24 h). A super admin can unlock you early in <span class="ui">Team</span> or <span class="ui">Security</span> › <span class="ui">Staff accounts</span> › <span class="ui">Unlock</span>.</p>
+  <div class="warn"><b>Never</b> share your password or codes, even with a colleague or “technical support” on the phone. Brookrege staff will never ask for them. Report such a call to the owner.</div>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 3 · everyone</div>
+  <h2>Overview</h2>
+  <p>The first screen after signing in. Each card is a shortcut to the matching list:</p>
+  <table>
+    <tr><th>Card</th><th>What it counts</th></tr>
+    <tr><td class="ui">Live listings</td><td>Listings visible on the public site now.</td></tr>
+    <tr><td class="ui">Expiring in 14 days</td><td>Live listings that go offline within two weeks — “Renew to keep them online”.</td></tr>
+    <tr><td class="ui">New inquiries</td><td>Call-back requests nobody has handled yet.</td></tr>
+    <tr><td class="ui">New property submissions</td><td>Owners asking Brookrege to list their property.</td></tr>
+    <tr><td class="ui">Drafts · Expired · Sold</td><td>Listings not on the site: unfinished, past their date (“Hidden from the public site”), or sold.</td></tr>
+  </table>
+</section>
+
+<section class="chapter page">
+  <div class="eyebrow">Chapter 4 · content admins (moderators: status buttons only)</div>
+  <h2>Listings: add, publish, renew, sell</h2>
+  <h3>The life of a listing</h3>
+  <div class="flow"><span>Draft</span><i>→ Publish →</i><span>Live (3 months)</span><i>→ date passes →</i><span>Expired</span><i>→ Renew →</i><span>Live</span></div>
+  <div class="flow"><span>Live</span><i>→ Mark as sold →</i><span>Sold</span><i>→ Archive →</i><span>Archived</span><i>→ Move back to drafts →</i><span>Draft</span></div>
+  <p>A listing is online for <b>3 months</b> from publishing or renewing. When the date passes it disappears from the public site immediately and is marked <span class="ui">Expired</span> by the nightly job (02:00). Expired listings stay in the admin so you can renew them.</p>
+  <h3>The Listings screen</h3>
+  <p>Tabs: <span class="ui">All</span>, <span class="ui">Live</span>, <span class="ui">Expiring soon</span> (14 days), <span class="ui">Drafts</span>, <span class="ui">Expired</span>, <span class="ui">Sold</span>. Search with <span class="ui">Search by title or address</span>. The table shows price, status, expiry date (with “in N days” when close) and the number of leads. “— no photos” warns about listings without pictures.</p>
+  <h3>Adding a listing</h3>
+  <p>Click <span class="ui">Add listing</span>. Fields:</p>
+  <table>
+    <tr><th>Field</th><th>Rules</th></tr>
+    <tr><td class="ui">Title in Arabic</td><td>Required, at least 5 characters. Shown on the Arabic site.</td></tr>
+    <tr><td class="ui">Title in English</td><td>Optional; the English site shows the Arabic title if empty.</td></tr>
+    <tr><td class="ui">Listed for</td><td><span class="ui">Sale</span> or <span class="ui">Rent</span>. Rent is for <b>apartments and shops only</b>.</td></tr>
+    <tr><td class="ui">Property type</td><td>Apartments, Villas, Townhouses, Studios, Shops, Offices, Land.</td></tr>
+    <tr><td class="ui">Seller</td><td>Sales only, required: <span class="ui">Developer</span> or <span class="ui">Resale</span>.</td></tr>
+    <tr><td class="ui">Price (EGP)</td><td>Whole pounds; for rent it is the <span class="ui">Monthly rent (EGP)</span>.</td></tr>
+    <tr><td class="ui">Area (m²)</td><td>Required.</td></tr>
+    <tr><td class="ui">Bedrooms / Bathrooms</td><td>0–50. No bedrooms for shops, offices and land; no bathrooms for land.</td></tr>
+    <tr><td class="ui">Description in Arabic / English</td><td>Optional but strongly recommended.</td></tr>
+    <tr><td class="ui">Feature this listing…</td><td>Shows it at the top of results. Use for a few listings at a time.</td></tr>
+    <tr><td class="ui">Region / Compound</td><td>Region required. Compound optional (<span class="ui">Not in a compound</span>); only compounds of the chosen region appear.</td></tr>
+    <tr><td class="ui">Address or landmark, Latitude, Longitude</td><td>Optional. Coordinates put the listing on the map: in Google Maps right-click the spot and click the numbers to copy them.</td></tr>
+  </table>
+  <p>Then click <span class="ui">Save and publish</span> (goes live for 3 months) or save as a draft to finish later.</p>
+  <h3>Editing and status buttons</h3>
+  <p>Open a listing to change its details (<span class="ui">Save changes</span>) and use the <span class="ui">Status</span> buttons:</p>
+  <table>
+    <tr><th>Status now</th><th>Buttons</th></tr>
+    <tr><td>Draft</td><td><span class="ui">Publish for 3 months</span></td></tr>
+    <tr><td>Live</td><td><span class="ui">Renew for 3 months</span> · <span class="ui">Mark as sold</span> · <span class="ui">Take offline now</span> (asks to confirm)</td></tr>
+    <tr><td>Expired</td><td><span class="ui">Renew for 3 months</span> · <span class="ui">Archive</span></td></tr>
+    <tr><td>Sold</td><td><span class="ui">Archive</span></td></tr>
+    <tr><td>Archived</td><td><span class="ui">Move back to drafts</span></td></tr>
+  </table>
+  <p><span class="ui">Delete listing</span> removes it from the site and the admin list; the activity log keeps a record. Prefer <span class="ui">Archive</span> — it keeps the history and reports complete.</p>
+  <div class="tip"><b>Changes appear on the website within about a minute</b> (the site keeps very short copies of pages to stay fast under heavy traffic).</div>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 5 · content admins</div>
+  <h2>Photos and video</h2>
+  <ul>
+    <li>On a listing, drag files onto <span class="ui">Drop photos or a video here, or click to choose</span>, or click <span class="ui">Add from media library</span> to reuse an existing upload.</li>
+    <li>Accepted: <b>JPG, PNG, WebP up to 15 MB</b> each; <b>MP4, MOV, WebM up to 95 MB</b>; up to <b>20 files</b> at a time. Other files are refused with a reason.</li>
+    <li>Photos are resized automatically (three sizes, so phones download small ones). Videos show <span class="ui">Preparing video…</span> for a few minutes while a preview frame is made.</li>
+    <li>The first photo is the <span class="ui">Cover photo</span>; choose another with its cover button. <span class="ui">Remove</span> takes a photo off this listing (it stays in the media library).</li>
+    <li>Good photos: daylight, landscape orientation, the best room first, no watermarks of other agencies, no people's faces or car plates.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 6 · everyone (changes: content admins)</div>
+  <h2>Media library</h2>
+  <p>Every photo and video uploaded. Tabs: <span class="ui">All</span>, <span class="ui">Photos</span>, <span class="ui">Videos</span>, <span class="ui">Not used</span>, <span class="ui">Deleted</span>. Each file shows where it is used (<i>In 2 listings</i> or <span class="ui">Not used</span>).</p>
+  <ul>
+    <li><span class="ui">Add description</span>: a short text such as “Living room with balcony”. Helps blind visitors and Google.</li>
+    <li><span class="ui">Delete</span>: if the file is in use you are asked whether to delete it everywhere. Deleted files can be <span class="ui">Restore</span>d for <b>30 days</b>.</li>
+    <li>Uploads never attached to a listing are cleared automatically after <b>7 days</b>.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 7 · everyone</div>
+  <h2>Inquiries</h2>
+  <p>People who asked to be called about a listing. Each new inquiry is also emailed to the staff list (chapter 12), and the visitor may get an SMS confirmation.</p>
+  <div class="flow"><span>New</span><i>→</i><span>Contacted</span><i>→</i><span>Viewing booked</span><i>→</i><span>Offer made</span><i>→</i><span>Closed</span></div>
+  <ul>
+    <li>Change the status with the drop-down on each inquiry; use <span class="ui">Spam</span> for fake requests.</li>
+    <li>Write a <b>staff note</b> (“called, wants to visit Thursday”) — it saves when you click away.</li>
+    <li><b>Call back within one working day.</b> The owner sees the “median time to first response” in Analytics, and monitoring warns when many inquiries wait for more than a day.</li>
+  </ul>
+  <div class="warn">Phone numbers and messages are personal data. Don't copy them to personal WhatsApp groups or spreadsheets; after 24 months without activity the system removes the contact details automatically.</div>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 8 · everyone (changes: content admins)</div>
+  <h2>Property submissions</h2>
+  <p>Owners who used “Add your property” on the website. Statuses: <span class="ui">New</span> → <span class="ui">Contacted</span> → <span class="ui">Listed</span> or <span class="ui">Not suitable</span>. When you list it, click <span class="ui">Add listing</span>, create the listing, then set the submission to <span class="ui">Listed</span>.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 9 · content admins</div>
+  <h2>Regions, compounds &amp; projects</h2>
+  <ul>
+    <li><b>Regions</b> (<span class="ui">Add region</span>): areas of Sohag. Name in English (used in web addresses) and <span class="ui">Arabic name</span>.</li>
+    <li><b>Compounds</b> (<span class="ui">Add compound</span>): Name in English / Arabic, region, <span class="ui">Developer</span>, descriptions. Each compound gets its own page on the site listing its units and “starting from” prices.</li>
+    <li><b>Projects</b> (<span class="ui">Add project</span>): <span class="ui">Partnership / major project</span> or <span class="ui">Completed / sold</span>, with optional <span class="ui">Partner</span> and <span class="ui">Completed on</span> date. Shown on the “Our projects” page.</li>
+    <li>A region or compound that still has listings can't be deleted; move the listings first.</li>
+  </ul>
+</section>
+
+<section class="chapter page">
+  <div class="eyebrow">Chapter 10 · content admins and super admins</div>
+  <h2>Analytics &amp; reports</h2>
+  <p>Choose a period (<span class="ui">From</span> – to). Tabs: <span class="ui">Overview</span>, <span class="ui">Listings</span>, <span class="ui">Inquiries</span>, <span class="ui">Team activity</span>.</p>
+  <ul>
+    <li>Figures: <span class="ui">Listing views</span>, <span class="ui">Inquiries</span>, <span class="ui">Inquiries per 100 views</span>, <span class="ui">'Add your property' requests</span>, <span class="ui">New listings published</span>, <span class="ui">Marked sold</span>, <span class="ui">Live listings now</span>, <span class="ui">Median time to first response</span>, each compared with the previous period.</li>
+    <li>Charts: <span class="ui">Views and inquiries per day</span>, <span class="ui">By property type</span>, and the <span class="ui">Most viewed listings</span> table.</li>
+    <li><span class="ui">Export</span> to <span class="ui">Excel</span>, or <span class="ui">Print / save as PDF</span> (the browser's print window; choose “Save as PDF”).</li>
+    <li><span class="ui">Scheduled reports</span> › <span class="ui">Add schedule</span>: <span class="ui">Weekly</span> (Sundays) or <span class="ui">Monthly</span> (the 1st), with recipient emails. <span class="ui">Stop</span> ends a schedule. Needs email set up (chapter 12).</li>
+  </ul>
+  <p>Views are counted once per visitor per listing per 30 minutes; search-engine robots are not counted.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 11 · super admins</div>
+  <h2>Team</h2>
+  <ol>
+    <li><span class="ui">Add member</span>: <span class="ui">Name</span>, <span class="ui">Email</span>, <span class="ui">Role</span>, <span class="ui">Temporary password</span>.</li>
+    <li>Give the temporary password <b>in person or by phone — never by email or chat</b>. They choose their own at first sign-in (until then the list shows <span class="ui">Hasn't chosen a password yet</span>).</li>
+  </ol>
+  <ul>
+    <li><span class="ui">Suspend</span> blocks someone at once (e.g. they left the company) and signs them out everywhere. <span class="ui">Restore access</span> undoes it.</li>
+    <li>The list shows <span class="ui">Last sign-in</span>, <span class="ui">Two-step</span> status and <span class="ui">Locked</span> accounts.</li>
+    <li><b>When someone leaves:</b> suspend the same day, then check <span class="ui">Security</span> › <span class="ui">Signed in now</span> is clear for them.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 12 · super admins</div>
+  <h2>Notifications (email and SMS)</h2>
+  <p>Emails and text messages are sent automatically in the background and retried if a provider is briefly unavailable. Tabs:</p>
+  <ul>
+    <li><span class="ui">Email</span>: provider <span class="ui">SendGrid</span>, <span class="ui">From address (verified in SendGrid)</span>, <span class="ui">From name</span>, and <span class="ui">Staff who receive new inquiries and submissions</span>. <span class="ui">Save email settings</span>, then <span class="ui">Send test</span>.</li>
+    <li><span class="ui">SMS</span>: provider <span class="ui">Twilio</span> (<span class="ui">Account SID</span>, sender or <span class="ui">Messaging Service SID</span>). Egypt requires a registered alphanumeric sender ID; Arabic messages use 70 characters per SMS segment. <span class="ui">Don't send — write to server log (testing)</span> is for testing only.</li>
+    <li><span class="ui">Messages</span>: the texts of each automatic email/SMS; choose one, edit, <span class="ui">Save template</span>.</li>
+    <li><span class="ui">Delivery log</span>: every message with <span class="ui">Sent</span>, <span class="ui">Failed</span> or <span class="ui">Skipped</span> and the error. <span class="ui">Background jobs</span>: failed jobs with <span class="ui">Retry</span>.</li>
+  </ul>
+  <p>Provider keys are stored encrypted and shown masked; you only type them again to change them.</p>
+</section>
+
+<section class="chapter page">
+  <div class="eyebrow">Chapter 13 · super admins</div>
+  <h2>Security</h2>
+  <p>“Who can get in, how, and what happened recently.” Tabs:</p>
+  <ul>
+    <li><span class="ui">Overview</span>: anything that <span class="ui">Needs attention</span> (locked accounts, required 2FA not set up) and the <span class="ui">Policy</span> switch <span class="ui">Require two-step verification for everyone</span> (super admins always need it).</li>
+    <li><span class="ui">Staff accounts</span>: status of each person, with <span class="ui">Unlock</span>, <span class="ui">Reset 2FA</span> (when someone lost their phone and codes — check it is really them first) and <span class="ui">Sign out everywhere</span>.</li>
+    <li><span class="ui">Signed in now</span>: every signed-in browser; <span class="ui">End session</span> signs one out.</li>
+    <li><span class="ui">Allowed networks</span>: limit the admin to the office connection. Only turn this on if the office has a <b>fixed IP address</b> from its provider — most Egyptian home and mobile connections change address. <span class="ui">Add my current address</span> first, so you don't lock yourself out. Saved changes apply on all servers within 15 seconds.</li>
+    <li><span class="ui">Recent events</span>: sign-ins, wrong passwords, locks, 2FA changes, blocked addresses.</li>
+  </ul>
+  <div class="warn"><b>Emergency:</b> if you think an account is stolen, use <span class="ui">Sign out everywhere</span> for that person, suspend them in Team, and call the technical contact. Full steps: docs/security/INCIDENT-RESPONSE.md.</div>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 14 · super admins</div>
+  <h2>Privacy requests</h2>
+  <p>Egypt's Personal Data Protection Law gives people the right to know what we hold about them, get a copy, and have it removed.</p>
+  <ol>
+    <li><b>Check it is really them</b> — e.g. call back the number they gave.</li>
+    <li><span class="ui">Requests</span> › <span class="ui">Find a person's data</span>: enter the <span class="ui">Phone (any format)</span> or email, <span class="ui">Search</span>. You see their inquiries, property requests and messages.</li>
+    <li><span class="ui">Download a copy (JSON)</span> and send it through the channel they contacted you from.</li>
+    <li>To remove: <span class="ui">Erase this person's details</span>, type <span class="ui">ERASE</span>, confirm. Names, phones, emails, messages and staff notes are removed; the records stay without them so reports still add up. <b>This can't be undone.</b></li>
+  </ol>
+  <p><span class="ui">Retention</span>: how long personal details are kept (leads: months without any update; message logs and sign-in addresses). A clean-up runs every night at 04:10; <span class="ui">Run the clean-up now</span> runs it immediately.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 15 · everyone</div>
+  <h2>My account</h2>
+  <ul>
+    <li><span class="ui">Password</span>: change it (current password required).</li>
+    <li><span class="ui">Two-step verification</span>: turn on (chapter 2), <span class="ui">Create new backup codes</span> (the old ones stop working; you'll be told when you're running low), or turn off if your role allows.</li>
+    <li><span class="ui">Signed-in browsers</span>: every place you are signed in. <span class="ui">Sign out everywhere else</span> after using a shared or lost device.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 16 · super admins</div>
+  <h2>Activity log</h2>
+  <p>A permanent record of every change: who, what, when (e.g. “Published listing”, “Edited listing”, “Updated inquiry”, “Reset two-step verification”). Filter with <span class="ui">Everything</span>, <span class="ui">Listings</span>, <span class="ui">Inquiries</span> and others; <span class="ui">Show changes</span> displays before/after values. Nobody — not even a super admin — can edit or delete entries.</p>
+</section>
+
+<section class="chapter page">
+  <div class="eyebrow">Chapter 17</div>
+  <h2>Daily and weekly routine</h2>
+  <table>
+    <tr><th>When</th><th>Who</th><th>What</th></tr>
+    <tr><td>Every morning</td><td>Sales / moderators</td><td>Overview › New inquiries: call everyone back, set the status, add a note.</td></tr>
+    <tr><td>Every morning</td><td>Content admin</td><td>New property submissions; Expiring in 14 days → renew or mark sold.</td></tr>
+    <tr><td>When something sells</td><td>Anyone</td><td>Mark as sold the same day, so customers don't call about it.</td></tr>
+    <tr><td>Weekly (Sunday)</td><td>Owner</td><td>Read the weekly report email; check Listings › Drafts and “no photos”.</td></tr>
+    <tr><td>Monthly</td><td>Super admin</td><td>Team: suspend anyone who left; Security › Recent events; Notifications › Delivery log for failures.</td></tr>
+  </table>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Chapter 18</div>
+  <h2>When something goes wrong</h2>
+  <table>
+    <tr><th>Problem</th><th>What to do</th></tr>
+    <tr><td>“Email or password is incorrect.”</td><td>Check caps lock and the email. After 5 tries the account locks — ask a super admin to unlock.</td></tr>
+    <tr><td>Lost phone with the authenticator</td><td>Sign in with a backup code, then set up 2FA again. No codes: a super admin uses <span class="ui">Reset 2FA</span>.</td></tr>
+    <tr><td>Signed out unexpectedly</td><td>Normal after 60 minutes idle or 12 hours. If it happens constantly, tell the super admin.</td></tr>
+    <tr><td>A photo was refused</td><td>The message says why: wrong type (HEIC from iPhones — set the camera to “Most compatible”), too large, or not really an image.</td></tr>
+    <tr><td>Listing not on the website</td><td>Is it Live and not expired? Wait a minute. Still missing: refresh with Ctrl+F5.</td></tr>
+    <tr><td>No inquiry emails</td><td>Notifications › Delivery log. Failures there: tell the super admin (provider key or credit).</td></tr>
+    <tr><td>The admin or site is down</td><td>The technical team is alerted automatically. If it lasts more than 15 minutes, call the technical contact.</td></tr>
+    <tr><td>A suspicious call or email asks for a password or code</td><td>Refuse, hang up, tell the owner. That's how most accounts are stolen.</td></tr>
+  </table>
+</section>
+
+<section class="chapter page ar" lang="ar">
+  <div class="eyebrow">ملحق</div>
+  <h2>بطاقة مختصرة — لوحة تحكم <bdi dir="ltr">Brookrege</bdi></h2>
+  <ul>
+    <li><b>الدخول:</b> <bdi dir="ltr">admin.brookrege.com</bdi> — البريد وكلمة المرور ثم رمز التطبيق المكوّن من ٦ أرقام. بدون الهاتف: اضغط «<bdi dir="ltr">Use a backup code</bdi>».</li>
+    <li><b>كلمة المرور:</b> ١٢ حرفًا على الأقل، بها حرف كبير وصغير ورقم ورمز. لا تشاركها مع أحد أبدًا.</li>
+    <li><b>القفل:</b> ٥ محاولات خاطئة تقفل الحساب ١٥ دقيقة. اطلب من المدير «<bdi dir="ltr">Unlock</bdi>».</li>
+    <li><b>إضافة عقار:</b> <bdi dir="ltr">Listings</bdi> ← <bdi dir="ltr">Add listing</bdi> ← املأ البيانات ← <bdi dir="ltr">Save and publish</bdi> (يظهر ٣ أشهر).</li>
+    <li><b>الإيجار:</b> للشقق والمحلات فقط. البيع: اختر «<bdi dir="ltr">Developer</bdi>» أو «<bdi dir="ltr">Resale</bdi>».</li>
+    <li><b>الصور:</b> <bdi dir="ltr">JPG / PNG / WebP</bdi> حتى ١٥ ميجا، فيديو حتى ٩٥ ميجا، حتى ٢٠ ملفًا في المرة.</li>
+    <li><b>قبل انتهاء المدة:</b> <bdi dir="ltr">Renew for 3 months</bdi>. عند البيع: <bdi dir="ltr">Mark as sold</bdi> في نفس اليوم.</li>
+    <li><b>الاستفسارات:</b> اتصل بالعميل خلال يوم عمل، غيّر الحالة، واكتب ملاحظة.</li>
+    <li><b>بيانات العملاء:</b> لا تنسخ الأرقام إلى مجموعات واتساب شخصية.</li>
+    <li><b>مكالمة أو رسالة تطلب كلمة مرور أو رمز:</b> ارفض وأبلغ المالك فورًا.</li>
+  </ul>
+</section>
+</body>
+</html>

@@ -1,0 +1,73 @@
+# Prometheus — runs on VPS1 (or the single server). Scrape targets come from targets/<topology>/*.yml,
+# copied into place by infra/monitoring/configure.py, so this file is the same everywhere.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    site: brookrege
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["127.0.0.1:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+        labels: { server: monitoring }
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["127.0.0.1:9093"]
+        labels: { server: monitoring }
+
+  # Application (API servers and the background worker): brookrege metrics on port 9464.
+  - job_name: api
+    file_sd_configs: [{ files: [/etc/prometheus/targets/api.yml] }]
+  - job_name: worker
+    file_sd_configs: [{ files: [/etc/prometheus/targets/worker.yml] }]
+
+  # Hosts and containers.
+  - job_name: node
+    file_sd_configs: [{ files: [/etc/prometheus/targets/node.yml] }]
+  - job_name: cadvisor
+    scrape_interval: 30s
+    file_sd_configs: [{ files: [/etc/prometheus/targets/cadvisor.yml] }]
+    metric_relabel_configs:
+      # Keep container series only for our containers (drop per-cgroup system noise).
+      - source_labels: [__name__, name]
+        regex: "container_.*;"
+        action: drop
+
+  # Data stores and the load balancer.
+  - job_name: postgres
+    file_sd_configs: [{ files: [/etc/prometheus/targets/postgres.yml] }]
+  - job_name: redis
+    file_sd_configs: [{ files: [/etc/prometheus/targets/redis.yml] }]
+  - job_name: nginx
+    file_sd_configs: [{ files: [/etc/prometheus/targets/nginx.yml] }]
+  - job_name: loki
+    file_sd_configs: [{ files: [/etc/prometheus/targets/loki.yml] }]
+
+  # The site as a visitor sees it (through Cloudflare): up/down, response time, certificate expiry.
+  - job_name: blackbox_http
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    scrape_interval: 30s
+    file_sd_configs: [{ files: [/etc/prometheus/targets/blackbox-http.yml] }]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+  - job_name: blackbox_exporter
+    static_configs:
+      - targets: ["127.0.0.1:9115"]
+        labels: { server: monitoring }

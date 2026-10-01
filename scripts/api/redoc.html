@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brookrege API</title>
+  <meta name="description" content="Brookrege API reference (generated from docs/api/openapi.yaml)">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* Redoc has a single light look, so the page commits to it and paints its own background. */
+    :root { --bg: #fbfcfc; --fg: #16201f; --muted: #52605e; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+    #loading { font: 15px/1.5 "IBM Plex Sans", system-ui, sans-serif; padding: 48px 16px; text-align: center; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div id="loading">Loading the API reference…</div>
+  <div id="redoc"></div>
+  <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.5/bundles/redoc.standalone.js"></script>
+  <script>
+    (function () {
+      var spec = __SPEC__;
+      var el = document.getElementById("redoc");
+      if (!window.Redoc) {
+        document.getElementById("loading").textContent = "Couldn't load the viewer. The raw specification is docs/api/openapi.yaml.";
+        return;
+      }
+      Redoc.init(spec, {
+        hideDownloadButton: false,
+        expandResponses: "200,201",
+        pathInMiddlePanel: true,
+        requiredPropsFirst: true,
+        sortPropsAlphabetically: false,
+        jsonSampleExpandLevel: 2,
+        theme: {
+          colors: { primary: { main: "#0f766e" } },
+          typography: {
+            fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+            headings: { fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontWeight: "600" },
+            code: { fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }
+          },
+          sidebar: { width: "280px" },
+          rightPanel: { backgroundColor: "#1f2a30" }
+        }
+      }, el, function () {
+        var l = document.getElementById("loading"); if (l) l.remove();
+      });
+    })();
+  </script>
+</body>
+</html>

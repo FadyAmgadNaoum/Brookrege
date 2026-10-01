@@ -1,0 +1,78 @@
+name: Deploy
+
+# Installs a published release (see "Release images") on staging or production, from GitHub:
+# Actions › Deploy › Run workflow › choose where and which release. The servers do the work
+# (scripts/deploy/deploy.sh: backup, migrations, switch, health checks, automatic rollback).
+#
+# Setup (once, per environment — Settings › Environments › "staging" and "production"):
+#   secrets  DEPLOY_SSH_KEY       private key of a key pair made only for this (its public half in
+#                                 /home/deploy/.ssh/authorized_keys on the server)
+#            DEPLOY_KNOWN_HOSTS   the server's host key line (ssh-keyscan -t ed25519 <server>, checked by hand)
+#   vars     DEPLOY_HOST          address of the server (production cluster: VPS1)
+#            DEPLOY_TARGET        single | staging | cluster
+#   production: add yourself under "Required reviewers" so every production deploy waits for a click.
+# Guide: docs/operations/DEPLOYMENT-RUNBOOK.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to
+        type: choice
+        options: [staging, production]
+        default: staging
+      release:
+        description: Release to install (commit, 12 characters — shown in the "Release images" run)
+        required: true
+        type: string
+      action:
+        description: deploy, or roll back to the release before the current one (ignores "release")
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false   # never interrupt a deploy half-way
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    env:
+      RELEASE: ${{ inputs.release }}
+      ACTION: ${{ inputs.action }}
+      HOST: ${{ vars.DEPLOY_HOST }}
+      TARGET: ${{ vars.DEPLOY_TARGET }}
+    steps:
+      - name: Check inputs
+        run: |
+          [[ "$RELEASE" =~ ^[0-9a-f]{7,40}$ ]] || [ "$ACTION" = rollback ] || { echo "::error::release must be a commit id (hex)"; exit 1; }
+          [[ "$TARGET" =~ ^(single|staging|cluster)$ ]] || { echo "::error::set the environment variable DEPLOY_TARGET (single, staging or cluster)"; exit 1; }
+          [ -n "$HOST" ] || { echo "::error::set the environment variable DEPLOY_HOST"; exit 1; }
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+      - name: Deploy
+        run: |
+          set -euo pipefail
+          SSH=(ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes "deploy@$HOST")
+          if [ "$TARGET" = cluster ]; then
+            if [ "$ACTION" = rollback ]; then CMD="scripts/deploy/deploy-cluster.sh --rollback"; else CMD="scripts/deploy/deploy-cluster.sh $RELEASE"; fi
+          else
+            if [ "$ACTION" = rollback ]; then CMD="sudo scripts/deploy/rollback.sh --target $TARGET"; else CMD="sudo scripts/deploy/deploy.sh --target $TARGET --tag $RELEASE"; fi
+          fi
+          # Fetch first, so the commit (and its version of the deploy scripts' inputs) exists on the server.
+          "${SSH[@]}" "cd /opt/brookrege && git fetch --quiet origin && $CMD"
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

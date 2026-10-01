@@ -1,0 +1,89 @@
+# Rendered by infra/monitoring/configure.py into generated/alertmanager.yml — edit this template, not the output.
+# Secrets are never in this file: they are read from /etc/alertmanager/secrets/* (see configure.py --help).
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: "{{SMTP_HOST}}:{{SMTP_PORT}}"
+  smtp_from: "{{ALERT_EMAIL_FROM}}"
+  smtp_auth_username: "{{SMTP_USER}}"
+  smtp_auth_password_file: /etc/alertmanager/secrets/smtp_password
+  smtp_require_tls: true
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl
+
+route:
+  receiver: email
+  group_by: [alertname, server]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    # Dead man's switch: always firing, pinged every minute. If the pings stop, the heartbeat service
+    # (e.g. healthchecks.io) alerts you that monitoring itself is down.
+    - matchers: ['alertname="Watchdog"']
+      receiver: heartbeat
+      group_wait: 0s
+      group_interval: 1m
+      repeat_interval: 1m
+    - matchers: ['severity="critical"']
+      receiver: urgent
+      group_wait: 10s
+      repeat_interval: 2h
+    - matchers: ['severity="info"']
+      receiver: email
+      group_interval: 1h
+      repeat_interval: 24h
+
+inhibit_rules:
+  # When the whole site is down, don't also send every symptom.
+  - source_matchers: ['alertname="SiteDown"']
+    target_matchers: ['alertname=~"HighErrorRate|HighLatency|SiteSlow"']
+  - source_matchers: ['alertname="AllApiServersDown"']
+    target_matchers: ['alertname=~"ApiServerDown|TargetDown|HighErrorRate|HighLatency"', 'job="api"']
+  # A server that can't be scraped at all hides its own detailed alerts.
+  - source_matchers: ['alertname="TargetDown"', 'job="node"']
+    target_matchers: ['alertname=~"DiskSpaceLow|MemoryLow|HighCPU"']
+    equal: [server]
+  - source_matchers: ['alertname="PostgresDown"']
+    target_matchers: ['alertname=~"AppCannotReachDatabase|HighDatabaseConnections|ReplicationLag"']
+  - source_matchers: ['severity="critical"']
+    target_matchers: ['severity="warning"']
+    equal: [alertname, server]
+
+receivers:
+  - name: email
+    email_configs:
+      - to: "{{ALERT_EMAIL_TO}}"
+        send_resolved: true
+        headers: { Subject: '{{ template "brookrege.subject" . }}' }
+        html: '{{ template "brookrege.html" . }}'
+
+  - name: urgent
+    email_configs:
+      - to: "{{ALERT_EMAIL_TO}}"
+        send_resolved: true
+        headers: { Subject: '{{ template "brookrege.subject" . }}' }
+        html: '{{ template "brookrege.html" . }}'
+#if SLACK
+    slack_configs:
+      - api_url_file: /etc/alertmanager/secrets/slack_webhook_url
+        channel: "{{SLACK_CHANNEL}}"
+        send_resolved: true
+        title: '{{ template "brookrege.subject" . }}'
+        text: '{{ template "brookrege.text" . }}'
+#endif
+#if TELEGRAM
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager/secrets/telegram_bot_token
+        chat_id: {{TELEGRAM_CHAT_ID}}
+        send_resolved: true
+        parse_mode: ""
+        message: '{{ template "brookrege.text" . }}'
+#endif
+
+  - name: heartbeat
+#if HEARTBEAT
+    webhook_configs:
+      - url_file: /etc/alertmanager/secrets/heartbeat_url
+        send_resolved: false
+#endif

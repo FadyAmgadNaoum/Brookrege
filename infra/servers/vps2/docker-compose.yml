@@ -1,0 +1,76 @@
+# VPS2 — app server 1 + database replica. Private address 10.0.0.2 (no public ports).
+# Run from this folder:  docker compose --env-file ../../../.env.cluster up -d --build
+name: brookrege-vps2
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    entrypoint: ["/opt/brookrege/entrypoint.sh"]
+    environment:
+      PG_ROLE: replica                 # promoted to primary by scripts/cluster/failover-db.sh
+      PRIMARY_HOST: 10.0.0.1
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD}
+      REPLICATION_SLOT: vps2
+      PG_SHARED_BUFFERS: 512MB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../../postgres/entrypoint.sh:/opt/brookrege/entrypoint.sh:ro
+      - ../../postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    ports: ["10.0.0.2:5432:5432"]      # pgBouncer (VPS1) reads from here, and writes after a failover
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -h 127.0.0.1"], interval: 10s, retries: 30, start_period: 120s }
+    shm_size: 256mb
+
+  api:
+    image: ${IMAGE_REGISTRY:-brookrege}/api:${IMAGE_TAG:-local}   # CI-built image (scripts/deploy); "build" is for local use
+    build: { context: ../../.., dockerfile: apps/api/Dockerfile, args: { APP_VERSION: "${APP_VERSION:-dev}" } }
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      INSTANCE_ID: vps2
+      # All database traffic goes through pgBouncer on VPS1 (the failover script re-points it there).
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@10.0.0.1:6432/${DB_NAME}?pgbouncer=true&connection_limit=10
+      DIRECT_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@10.0.0.1:6432/${DB_NAME}_direct
+      DATABASE_REPLICA_URL: postgresql://${DB_USER}:${DB_PASSWORD}@10.0.0.1:6432/${DB_NAME}_ro?pgbouncer=true&connection_limit=5
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      CORS_ORIGINS: https://${PUBLIC_DOMAIN},https://${ADMIN_DOMAIN}
+      PUBLIC_API_URL: https://${PUBLIC_DOMAIN}
+      TZ_NAME: Africa/Cairo
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-r2}
+      PUBLIC_MEDIA_BASE_URL: ${PUBLIC_MEDIA_BASE_URL}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY}
+      ADMIN_APP_URL: https://${ADMIN_DOMAIN}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@10.0.0.3:6379/0   # shared cache on VPS3
+      JOBS_WORKER: "false"            # background jobs run in the dedicated worker on VPS3
+      BOOTSTRAP_EMAIL: ${BOOTSTRAP_EMAIL:-}       # first deploy only; creates the first super admin once
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
+    volumes: ["/srv/brookrege/uploads:/data/uploads"]   # NFS mount from VPS1 — both servers see the same photos
+    ports: ["10.0.0.2:4000:4000", "10.0.0.2:9464:9464"]   # 9464 = metrics for Prometheus on VPS1
+
+  web:
+    image: ${IMAGE_REGISTRY:-brookrege}/web${WEB_VARIANT:-}:${IMAGE_TAG:-local}   # CI-built image (scripts/deploy); "build" is for local use
+    build:
+      context: ../../..
+      dockerfile: apps/web/Dockerfile
+      args: { NEXT_PUBLIC_API_URL: "https://${PUBLIC_DOMAIN}", NEXT_PUBLIC_WHATSAPP_NUMBER: "${WHATSAPP_NUMBER}" }
+    restart: unless-stopped
+    environment:
+      INSTANCE_ID: vps2
+      API_INTERNAL_URL: http://api:4000    # server-side rendering calls the API on the same VPS
+      NEXT_PUBLIC_API_URL: https://${PUBLIC_DOMAIN}
+      NEXT_PUBLIC_WHATSAPP_NUMBER: ${WHATSAPP_NUMBER}
+    depends_on: { api: { condition: service_healthy } }
+    ports: ["10.0.0.2:3000:3000"]
+
+  admin:
+    image: ${IMAGE_REGISTRY:-brookrege}/admin:${IMAGE_TAG:-local}   # CI-built image (scripts/deploy); "build" is for local use
+    build: { context: ../../.., dockerfile: apps/admin/Dockerfile, args: { NEXT_PUBLIC_API_URL: "" } }
+    restart: unless-stopped
+    environment: { INSTANCE_ID: vps2 }
+    ports: ["10.0.0.2:3001:3001"]
+
+volumes:
+  pgdata:

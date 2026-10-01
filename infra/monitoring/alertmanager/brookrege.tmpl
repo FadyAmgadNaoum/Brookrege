@@ -1,0 +1,20 @@
+{{/* Notification text for Brookrege alerts: short, plain, with the runbook to open. */}}
+{{ define "brookrege.subject" }}[{{ .Status | toUpper }}{{ if eq .Status "firing" }} · {{ .Alerts.Firing | len }}{{ end }}] Brookrege: {{ .CommonLabels.alertname }}{{ if .CommonLabels.server }} on {{ .CommonLabels.server }}{{ end }}{{ end }}
+
+{{ define "brookrege.text" }}{{ range .Alerts }}{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} {{ .Annotations.summary }}
+{{ if .Annotations.description }}{{ .Annotations.description }}
+{{ end }}What to do: {{ .Annotations.runbook }}
+Since: {{ .StartsAt.Format "2006-01-02 15:04 MST" }}
+{{ end }}{{ end }}
+
+{{ define "brookrege.html" }}
+<div style="font-family:Arial,sans-serif;font-size:14px;color:#22302C">
+{{ range .Alerts }}
+  <p style="margin:0 0 4px"><b>{{ if eq .Status "firing" }}Problem{{ else }}Resolved{{ end }}:</b> {{ .Annotations.summary }}</p>
+  {{ if .Annotations.description }}<p style="margin:0 0 4px">{{ .Annotations.description }}</p>{{ end }}
+  <p style="margin:0 0 4px">What to do: <code>{{ .Annotations.runbook }}</code></p>
+  <p style="margin:0 0 16px;color:#56625D">Since {{ .StartsAt.Format "2006-01-02 15:04 MST" }} · severity {{ .Labels.severity }}{{ if .Labels.server }} · server {{ .Labels.server }}{{ end }}</p>
+{{ end }}
+<p style="color:#56625D">Dashboards: SSH tunnel to the monitoring server, then http://127.0.0.1:3000 (docs/operations/MONITORING.md).</p>
+</div>
+{{ end }}

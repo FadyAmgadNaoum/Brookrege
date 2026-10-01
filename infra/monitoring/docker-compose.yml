@@ -1,0 +1,92 @@
+# Monitoring server — runs on VPS1 (cluster) or on the single server. Host networking: every service binds
+# to 127.0.0.1 (dashboards: SSH tunnel) except Loki, which listens on the private address for the other servers.
+#
+#   python3 infra/monitoring/configure.py --topology cluster      # writes infra/monitoring/generated/
+#   docker compose -f infra/monitoring/docker-compose.yml --env-file .env.monitoring up -d
+#
+# Memory (measured defaults): Prometheus ~300 MB, Loki ~200 MB, Grafana ~150 MB, Alertmanager + blackbox ~50 MB.
+name: brookrege-monitoring
+
+x-defaults: &defaults
+  restart: unless-stopped
+  network_mode: host
+  logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+services:
+  prometheus:
+    <<: *defaults
+    image: prom/prometheus:v3.5.0
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-8GB}
+      - --web.listen-address=127.0.0.1:9090
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./generated/targets:/etc/prometheus/targets:ro
+      - prometheus-data:/prometheus
+
+  alertmanager:
+    <<: *defaults
+    image: prom/alertmanager:v0.28.1
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.listen-address=127.0.0.1:9093
+      - --cluster.listen-address=      # single instance: no gossip port
+    volumes:
+      - ./generated/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/brookrege.tmpl:/etc/alertmanager/templates/brookrege.tmpl:ro
+      - ${SECRETS_DIR:-/etc/brookrege/monitoring/secrets}:/etc/alertmanager/secrets:ro
+      - alertmanager-data:/alertmanager
+
+  blackbox:
+    <<: *defaults
+    image: prom/blackbox-exporter:v0.27.0
+    command: [--config.file=/etc/blackbox/blackbox.yml, --web.listen-address=127.0.0.1:9115]
+    volumes: [./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro]
+
+  loki:
+    <<: *defaults
+    image: grafana/loki:3.5.5
+    user: "10001:10001"
+    command: [-config.file=/etc/loki/loki.yml, -config.expand-env=true]
+    environment:
+      LOKI_LISTEN_ADDRESS: ${MON_PRIVATE_IP:-127.0.0.1}
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+
+  grafana:
+    <<: *defaults
+    image: grafana/grafana:12.1.1
+    user: "472:0"
+    environment:
+      GF_SERVER_HTTP_ADDR: 127.0.0.1
+      GF_SERVER_HTTP_PORT: "3000"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: Africa/Cairo
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/brookrege-overview.json
+      MON_PRIVATE_IP: ${MON_PRIVATE_IP:-127.0.0.1}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ${SECRETS_DIR:-/etc/brookrege/monitoring/secrets}/grafana_admin_password:/run/secrets/grafana_admin_password:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  loki-data:
+  grafana-data:

@@ -1,0 +1,24 @@
+# Pre-computed series used by the dashboards and alerts (cheaper and consistent everywhere).
+groups:
+  - name: brookrege-recording
+    interval: 30s
+    rules:
+      - record: brookrege:http_requests:rate5m
+        expr: sum by (job, route, status) (rate(http_requests_total[5m]))
+      - record: brookrege:http_errors:ratio5m
+        # Share of requests answered with a server error (5xx), per job. 0 when there is no traffic.
+        expr: |
+          (sum by (job) (rate(http_requests_total{status="5xx"}[5m])) or sum by (job) (rate(http_requests_total[5m])) * 0)
+          / clamp_min(sum by (job) (rate(http_requests_total[5m])), 0.001)
+      - record: brookrege:http_latency:p95_5m
+        expr: histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
+      - record: brookrege:http_latency_route:p95_5m
+        expr: histogram_quantile(0.95, sum by (route, le) (rate(http_request_duration_seconds_bucket{route!="unmatched"}[5m])))
+      - record: brookrege:node_cpu:ratio5m
+        expr: 1 - avg by (server) (rate(node_cpu_seconds_total{mode="idle"}[5m]))
+      - record: brookrege:node_memory_available:ratio
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+      - record: brookrege:node_filesystem_free:ratio
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"}
+          / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"}

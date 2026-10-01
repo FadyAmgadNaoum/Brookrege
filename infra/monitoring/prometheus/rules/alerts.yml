@@ -1,0 +1,311 @@
+# Alert rules. Severity decides who is told and how fast (alertmanager/alertmanager.template.yml):
+#   critical → email + chat now, repeat every 2 h   warning → email, repeat every 12 h   info → daily email
+# Every alert links to its section in docs/operations/RUNBOOKS.md.
+groups:
+  # ───────────────────────── Is the site up? ─────────────────────────
+  - name: availability
+    rules:
+      - alert: SiteDown
+        expr: probe_success{job="blackbox_http"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.instance }} is not responding correctly"
+          description: "The check from the monitoring server has failed for 2 minutes (HTTP status, timeout or TLS error)."
+          runbook: docs/operations/RUNBOOKS.md#sitedown
+      - alert: SiteSlow
+        expr: probe_duration_seconds{job="blackbox_http"} > 3
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.instance }} takes {{ $value | humanizeDuration }} to load"
+          runbook: docs/operations/RUNBOOKS.md#siteslow
+      - alert: CertificateExpiresSoon
+        expr: (probe_ssl_earliest_cert_expiry{job="blackbox_http"} - time()) < 14 * 86400
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: "TLS certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+          runbook: docs/operations/RUNBOOKS.md#certificateexpiressoon
+      - alert: TargetDown
+        expr: up == 0
+        for: 3m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.job }} on {{ $labels.server }} can't be scraped"
+          description: "Prometheus can't reach {{ $labels.instance }}. The service is down, or the firewall/private network blocks it."
+          runbook: docs/operations/RUNBOOKS.md#targetdown
+      - alert: AllApiServersDown
+        expr: sum(up{job="api"}) == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "No API server is answering"
+          runbook: docs/operations/RUNBOOKS.md#allapiserversdown
+      - alert: ApiServerDown
+        expr: up{job="api"} == 0 and on() count(up{job="api"}) > 1
+        for: 3m
+        labels: { severity: warning }
+        annotations:
+          summary: "API on {{ $labels.server }} is down — the other server is carrying all traffic"
+          runbook: docs/operations/RUNBOOKS.md#targetdown
+
+  # ───────────────────────── Application ─────────────────────────
+  - name: application
+    rules:
+      - alert: HighErrorRate
+        expr: brookrege:http_errors:ratio5m{job="api"} > 0.05 and on(job) sum by (job) (rate(http_requests_total{job="api"}[5m])) > 0.1
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of API requests are failing (5xx)"
+          runbook: docs/operations/RUNBOOKS.md#higherrorrate
+      - alert: HighLatency
+        expr: brookrege:http_latency:p95_5m{job="api"} > 0.5 and on(job) sum by (job) (rate(http_requests_total{job="api"}[5m])) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "API p95 response time is {{ $value | humanizeDuration }} (target < 500 ms)"
+          runbook: docs/operations/RUNBOOKS.md#highlatency
+      - alert: EventLoopBlocked
+        expr: nodejs_eventloop_lag_p99_seconds > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.job }} on {{ $labels.server }} is overloaded (event-loop delay {{ $value | humanizeDuration }})"
+          runbook: docs/operations/RUNBOOKS.md#eventloopblocked
+      - alert: AppMemoryHigh
+        expr: process_resident_memory_bytes{job=~"api|worker"} > 900e6
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.job }} on {{ $labels.server }} uses {{ $value | humanize1024 }}B of memory"
+          runbook: docs/operations/RUNBOOKS.md#appmemoryhigh
+      - alert: AppRestarted
+        expr: changes(process_start_time_seconds{job=~"api|worker"}[15m]) > 2
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.job }} on {{ $labels.server }} restarted {{ $value }} times in 15 minutes (crash loop?)"
+          runbook: docs/operations/RUNBOOKS.md#apprestarted
+
+  # ───────────────────────── Database ─────────────────────────
+  - name: database
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "PostgreSQL ({{ $labels.db_role }}) on {{ $labels.server }} is down"
+          runbook: docs/operations/RUNBOOKS.md#postgresdown
+      - alert: AppCannotReachDatabase
+        expr: max by (server) (brookrege_db_up) == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "The app on {{ $labels.server }} can't query the database"
+          runbook: docs/operations/RUNBOOKS.md#postgresdown
+      - alert: HighDatabaseConnections
+        expr: sum by (server) (pg_stat_activity_count) / on(server) max by (server) (pg_settings_max_connections) > 0.8
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "PostgreSQL on {{ $labels.server }} is at {{ $value | humanizePercentage }} of its connection limit"
+          runbook: docs/operations/RUNBOOKS.md#highdatabaseconnections
+      - alert: ReplicationLag
+        expr: pg_replication_lag_seconds{db_role="replica"} > 30
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "The replica on {{ $labels.server }} is {{ $value | humanizeDuration }} behind"
+          runbook: docs/operations/RUNBOOKS.md#replicationlag
+      - alert: ReplicaNotReplicating
+        expr: pg_replication_is_replica{db_role="replica"} == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "The database on {{ $labels.server }} is no longer a replica (promoted?)"
+          runbook: docs/operations/RUNBOOKS.md#replicationlag
+      - alert: ReadsFellBackToPrimary
+        expr: min by (server) (brookrege_db_replica_healthy) == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "App on {{ $labels.server }} can't use the replica; all reads go to the primary"
+          runbook: docs/operations/RUNBOOKS.md#replicationlag
+      - alert: DatabaseDeadlocks
+        expr: sum by (server) (increase(pg_stat_database_deadlocks[15m])) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} deadlock(s) on {{ $labels.server }} in 15 minutes"
+          runbook: docs/operations/RUNBOOKS.md#databasedeadlocks
+
+  # ───────────────────────── Servers ─────────────────────────
+  - name: hosts
+    rules:
+      - alert: DiskSpaceLow
+        expr: brookrege:node_filesystem_free:ratio < 0.15
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Only {{ $value | humanizePercentage }} disk free on {{ $labels.server }} ({{ $labels.mountpoint }})"
+          runbook: docs/operations/RUNBOOKS.md#diskspacelow
+      - alert: DiskSpaceCritical
+        expr: brookrege:node_filesystem_free:ratio < 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Disk almost full on {{ $labels.server }} ({{ $labels.mountpoint }}: {{ $value | humanizePercentage }} free)"
+          runbook: docs/operations/RUNBOOKS.md#diskspacelow
+      - alert: DiskWillFillIn24h
+        expr: predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"}[6h], 24 * 3600) < 0 and brookrege:node_filesystem_free:ratio < 0.3
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "At the current rate, {{ $labels.mountpoint }} on {{ $labels.server }} fills up within a day"
+          runbook: docs/operations/RUNBOOKS.md#diskspacelow
+      - alert: MemoryLow
+        expr: brookrege:node_memory_available:ratio < 0.10
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Only {{ $value | humanizePercentage }} memory available on {{ $labels.server }}"
+          runbook: docs/operations/RUNBOOKS.md#memorylow
+      - alert: HighCPU
+        expr: brookrege:node_cpu:ratio5m > 0.9
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "CPU at {{ $value | humanizePercentage }} on {{ $labels.server }} for 15 minutes"
+          runbook: docs/operations/RUNBOOKS.md#highcpu
+
+  # ───────────────────────── Background jobs & messages ─────────────────────────
+  - name: jobs
+    rules:
+      - alert: JobQueueStuck
+        expr: max(brookrege_jobs_oldest_due_seconds) > 600
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "A background job has been waiting {{ $value | humanizeDuration }} — the worker may be down"
+          runbook: docs/operations/RUNBOOKS.md#jobqueuestuck
+      - alert: JobsFailing
+        expr: sum by (type) (increase(brookrege_jobs_processed_total{outcome="failed"}[1h])) > 3
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} '{{ $labels.type }}' jobs failed permanently in the last hour"
+          runbook: docs/operations/RUNBOOKS.md#jobsfailing
+      - alert: MessagesFailing
+        expr: sum by (channel) (increase(brookrege_notifications_total{status="FAILED"}[1h])) > 5
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} {{ $labels.channel }} messages failed in the last hour (provider problem or no credit?)"
+          runbook: docs/operations/RUNBOOKS.md#messagesfailing
+
+  # ───────────────────────── Backups ─────────────────────────
+  - name: backups
+    rules:
+      - alert: BackupTooOld
+        expr: time() - max(brookrege_backup_last_success_timestamp_seconds) > 26 * 3600
+        labels: { severity: critical }
+        annotations:
+          summary: "The last successful backup was {{ $value | humanizeDuration }} ago"
+          runbook: docs/operations/RUNBOOKS.md#backuptooold
+      - alert: BackupFailed
+        expr: max(brookrege_backup_last_failure_timestamp_seconds) > max(brookrege_backup_last_success_timestamp_seconds) or (max(brookrege_backup_last_failure_timestamp_seconds) and absent(brookrege_backup_last_success_timestamp_seconds))
+        labels: { severity: critical }
+        annotations:
+          summary: "The last backup attempt failed"
+          runbook: docs/operations/RUNBOOKS.md#backuptooold
+      - alert: BackupNeverRan
+        expr: absent(brookrege_backup_last_success_timestamp_seconds) and on() absent(brookrege_backup_last_failure_timestamp_seconds)
+        for: 26h
+        labels: { severity: warning }
+        annotations:
+          summary: "No backup has run since monitoring started"
+          runbook: docs/operations/RUNBOOKS.md#backuptooold
+      - alert: OffsiteBackupTooOld
+        expr: time() - max(brookrege_backup_offsite_last_success_timestamp_seconds) > 50 * 3600
+        labels: { severity: warning }
+        annotations:
+          summary: "The off-site copy (R2) hasn't succeeded for {{ $value | humanizeDuration }}"
+          runbook: docs/operations/RUNBOOKS.md#backuptooold
+
+  # ───────────────────────── Deploys (scripts/deploy/deploy.sh) ─────────────────────────
+  - name: deploys
+    rules:
+      - alert: DeployFailed
+        expr: min by (target, result) (brookrege_deploy_last_success) == 0
+        labels: { severity: warning }
+        annotations:
+          summary: "The last deploy on {{ $labels.target }} did not go through ({{ $labels.result }})"
+          runbook: docs/operations/RUNBOOKS.md#deployfailed
+      - alert: ServersOnDifferentReleases
+        expr: count(count by (version) (brookrege_deploy_info{target=~"vps[23]"})) > 1
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "The app servers have run different releases for 30 minutes"
+          runbook: docs/operations/RUNBOOKS.md#deployfailed
+
+  # ───────────────────────── Security ─────────────────────────
+  - name: security
+    rules:
+      - alert: FailedSignInSpike
+        expr: sum(increase(brookrege_auth_events_total{event=~"login_failed|mfa_failed"}[15m])) > 20
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value | humanize }} failed admin sign-ins in 15 minutes (password guessing?)"
+          runbook: docs/operations/RUNBOOKS.md#failedsigninspike
+      - alert: AccountLocked
+        expr: sum(increase(brookrege_auth_events_total{event="locked"}[10m])) > 0
+        labels: { severity: info }
+        annotations:
+          summary: "A staff account was locked after repeated failed sign-ins"
+          runbook: docs/operations/RUNBOOKS.md#failedsigninspike
+      - alert: AdminRequestsBlocked
+        expr: sum by (reason) (increase(brookrege_security_blocks_total[15m])) > 30
+        labels: { severity: info }
+        annotations:
+          summary: "{{ $value | humanize }} admin requests blocked ({{ $labels.reason }}) in 15 minutes"
+          runbook: docs/operations/RUNBOOKS.md#failedsigninspike
+
+  # ───────────────────────── Business ─────────────────────────
+  - name: business
+    rules:
+      - alert: LeadsWaiting
+        expr: max(brookrege_leads_open{kind="inquiry"}) > 15
+        for: 24h
+        labels: { severity: info }
+        annotations:
+          summary: "{{ $value }} inquiries have been waiting in NEW for over a day"
+          runbook: docs/operations/RUNBOOKS.md#leadswaiting
+      - alert: NoLeadsFor3Days
+        expr: max(brookrege_leads_last_24h) == 0
+        for: 72h
+        labels: { severity: info }
+        annotations:
+          summary: "No inquiries or property requests for 3 days — check the forms still work"
+          runbook: docs/operations/RUNBOOKS.md#noleads
+
+  # ───────────────────────── The monitoring itself ─────────────────────────
+  - name: meta
+    rules:
+      - alert: Watchdog
+        expr: vector(1)
+        labels: { severity: none }
+        annotations:
+          summary: "Always firing. Sent to the heartbeat service; if the heartbeat stops, monitoring itself is down."
+          runbook: docs/operations/RUNBOOKS.md#watchdog
+      - alert: AlertDeliveryFailing
+        expr: sum by (integration) (increase(alertmanager_notifications_failed_total[30m])) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Alertmanager can't deliver {{ $labels.integration }} notifications"
+          runbook: docs/operations/RUNBOOKS.md#alertdeliveryfailing
+      - alert: PrometheusRuleErrors
+        expr: increase(prometheus_rule_evaluation_failures_total[15m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Some alert rules can't be evaluated"
+          runbook: docs/operations/RUNBOOKS.md#watchdog

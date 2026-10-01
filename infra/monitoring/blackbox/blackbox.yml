@@ -1,0 +1,13 @@
+# Probes run from the monitoring server against the public URLs (through Cloudflare, like a visitor).
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      follow_redirects: true
+      fail_if_not_ssl: true
+      preferred_ip_protocol: ip4
+      headers:
+        User-Agent: "Brookrege-Monitor/1.0 (blackbox)"   # excluded from listing view counts (contains "monitor")

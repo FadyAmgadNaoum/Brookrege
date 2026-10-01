@@ -1,0 +1,23 @@
+{
+  "name": "brookrege",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build:domain": "npm run build -w @brookrege/domain",
+    "dev:api": "npm run dev -w @brookrege/api",
+    "dev:web": "npm run dev -w @brookrege/web",
+    "dev:admin": "npm run dev -w @brookrege/admin",
+    "db:migrate": "npm run db:migrate -w @brookrege/api",
+    "db:seed": "npm run db:seed -w @brookrege/api",
+    "typecheck": "npm run build:domain && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:domain && npm run test --workspaces --if-present",
+    "build": "npm run build:domain && npm run build -w @brookrege/api && npm run build -w @brookrege/web && npm run build -w @brookrege/admin"
+  }
+}

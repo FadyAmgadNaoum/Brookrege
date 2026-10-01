@@ -1,0 +1,76 @@
+name: Release images
+
+# After CI passes on main, builds the production images once and publishes them to GitHub's container
+# registry, tagged with the commit (first 12 characters) — that tag is the "release" deploy.sh installs.
+#   ghcr.io/<owner>/brookrege/{api,web,web-staging,admin,backup,pgbouncer}:<commit>
+# Repository › Settings › Secrets and variables › Actions › Variables (not secrets — they end up in the site):
+#   PUBLIC_DOMAIN      e.g. brookrege.com           (required: baked into the website image)
+#   WHATSAPP_NUMBER    e.g. 201000000000            (required)
+#   STAGING_DOMAIN     e.g. staging.brookrege.com   (optional: also builds web-staging)
+# Guide: docs/operations/DEPLOYMENT-RUNBOOK.md
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:   # rebuild the current main by hand (e.g. after changing a variable)
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  images:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
+      WHATSAPP_NUMBER: ${{ vars.WHATSAPP_NUMBER }}
+      STAGING_DOMAIN: ${{ vars.STAGING_DOMAIN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.SHA }}" }
+      - name: Settings
+        run: |
+          if [ -z "$PUBLIC_DOMAIN" ] || [ -z "$WHATSAPP_NUMBER" ]; then echo "::error::Set the repository variables PUBLIC_DOMAIN and WHATSAPP_NUMBER (see the top of this file)"; exit 1; fi
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "REGISTRY=ghcr.io/$owner/brookrege" >> "$GITHUB_ENV"
+          echo "TAG=${SHA::12}" >> "$GITHUB_ENV"
+      - name: Sign in to the registry
+        # The workflow's own short-lived token (no stored password); plain docker CLI, no third-party action.
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build
+        run: |
+          set -euo pipefail
+          LABELS=(--label "org.opencontainers.image.revision=$SHA" --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY")
+          docker build "${LABELS[@]}" -f apps/api/Dockerfile --build-arg APP_VERSION="$TAG" -t "$REGISTRY/api:$TAG" .
+          docker build "${LABELS[@]}" -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL="https://$PUBLIC_DOMAIN" \
+            --build-arg NEXT_PUBLIC_WHATSAPP_NUMBER="$WHATSAPP_NUMBER" -t "$REGISTRY/web:$TAG" .
+          if [ -n "$STAGING_DOMAIN" ]; then
+            docker build "${LABELS[@]}" -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL="https://$STAGING_DOMAIN" \
+              --build-arg NEXT_PUBLIC_WHATSAPP_NUMBER="$WHATSAPP_NUMBER" -t "$REGISTRY/web-staging:$TAG" .
+          fi
+          docker build "${LABELS[@]}" -f apps/admin/Dockerfile -t "$REGISTRY/admin:$TAG" .
+          docker build "${LABELS[@]}" -t "$REGISTRY/backup:$TAG" infra/backup
+          docker build "${LABELS[@]}" -t "$REGISTRY/pgbouncer:$TAG" infra/pgbouncer
+      - name: Smoke test the API image
+        run: |
+          docker run --rm --entrypoint node "$REGISTRY/api:$TAG" -e "require('./dist/lib/metrics.js'); console.log('api image OK')"
+          docker run --rm --entrypoint sh "$REGISTRY/web:$TAG" -c 'test -f apps/web/public/og.png && ls apps/web/public/journey/*/wide.mp4 >/dev/null && echo "web image has its public files"'
+      - name: Publish
+        run: |
+          for img in api web admin backup pgbouncer; do docker push --quiet "$REGISTRY/$img:$TAG"; done
+          [ -z "$STAGING_DOMAIN" ] || docker push --quiet "$REGISTRY/web-staging:$TAG"
+      - name: Summary
+        run: |
+          {
+            echo "### Release \`$TAG\` published"
+            echo "Deploy it: GitHub › Actions › **Deploy** › Run workflow › release \`$TAG\`"
+            echo "or on the server: \`sudo scripts/deploy/deploy.sh --target single --tag $TAG\` (three servers: \`scripts/deploy/deploy-cluster.sh $TAG\` on VPS1)"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,31 @@
+name: Load test
+
+# Manual only (Actions › Load test › Run workflow). Point it at STAGING, never production during business
+# hours. Before running: docs/operations/PERFORMANCE.md › "Load testing" (rate-limit exemption for the
+# runner's address, Cloudflare skip rule). A GitHub runner can simulate about 1,000–2,000 visitors; for
+# 5k/10k use k6 Cloud or several machines (same script).
+on:
+  workflow_dispatch:
+    inputs:
+      base_url: { description: "Site to test (e.g. https://staging.brookrege.com)", required: true }
+      profile: { description: "smoke, 1k, 5k or 10k", required: true, default: smoke }
+
+permissions: { contents: read }
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Runner address (add it to loadtest-allow.conf on the server first)
+        run: curl -s https://api.ipify.org && echo
+      - name: Run k6
+        run: |
+          chmod 777 tests/load   # the k6 image runs as an unprivileged user and writes summary.json here
+          docker run --rm -v "$PWD/tests/load:/scripts" grafana/k6:1.2.3 run \
+            -e BASE_URL="${{ inputs.base_url }}" -e PROFILE="${{ inputs.profile }}" \
+            --summary-export=/scripts/summary.json /scripts/brookrege.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: k6-summary, path: tests/load/summary.json, retention-days: 30 }

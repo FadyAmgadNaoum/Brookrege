@@ -1,0 +1,474 @@
+// Brookrege — Phase 1 schema
+// Money: EGP stored as Decimal(14,2). Geo: plain lat/lng floats (PostGIS deferred until needed).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Runtime traffic goes through pgBouncer in transaction mode (DATABASE_URL, with ?pgbouncer=true).
+  url       = env("DATABASE_URL")
+  // Migrations need a session-level connection for Prisma's migration lock
+  // (pgBouncer's session-mode alias in production; same as DATABASE_URL locally).
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  CONTENT_ADMIN
+  MODERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum PropertyType {
+  APARTMENT
+  VILLA
+  TOWNHOUSE
+  STUDIO
+  SHOP
+  ADMINISTRATIVE
+  LAND
+}
+
+enum TransactionType {
+  SALE
+  RENT
+}
+
+enum SellerType {
+  DEVELOPER
+  RESALE
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  SOLD
+  ARCHIVED
+}
+
+enum ProjectKind {
+  PARTNERSHIP
+  COMPLETED
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  VIEWING
+  OFFERED
+  CLOSED
+  SPAM
+}
+
+enum SubmissionStatus {
+  NEW
+  REVIEWED
+  CONVERTED
+  REJECTED
+}
+
+model Region {
+  id         String     @id @default(cuid())
+  name       String
+  nameAr     String?
+  slug       String     @unique
+  sortOrder  Int        @default(0)
+  isActive   Boolean    @default(true)
+  compounds  Compound[]
+  properties Property[]
+  projects   Project[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Compound {
+  id            String     @id @default(cuid())
+  name          String
+  nameAr        String?
+  slug          String     @unique
+  developerName String?
+  description   String?
+  descriptionEn String?
+  regionId      String
+  region        Region     @relation(fields: [regionId], references: [id])
+  latitude      Float?
+  longitude     Float?
+  coverImageUrl String?
+  isPublished   Boolean    @default(true)
+  sortOrder     Int        @default(0)
+  properties    Property[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([regionId])
+}
+
+model Property {
+  id          String          @id @default(cuid())
+  /// Primary language is Arabic. English fields are optional; the English site falls back to Arabic.
+  title         String
+  titleEn       String?
+  description   String?
+  descriptionEn String?
+  type        PropertyType
+  transaction TransactionType
+  sellerType  SellerType?
+  status      ListingStatus   @default(DRAFT)
+  price       Decimal         @db.Decimal(14, 2)
+  areaSqm     Int
+  bedrooms    Int?
+  bathrooms   Int?
+  regionId    String
+  region      Region          @relation(fields: [regionId], references: [id])
+  compoundId  String?
+  compound    Compound?       @relation(fields: [compoundId], references: [id])
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  isFeatured  Boolean         @default(false)
+  listedAt    DateTime?
+  expiresAt   DateTime?
+  soldAt      DateTime?
+  viewCount   Int             @default(0)
+  media       PropertyMedia[]
+  inquiries   Inquiry[]
+  dailyViews  PropertyViewDaily[]
+  createdById String?
+  createdBy   User?           @relation("PropertyCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?           @relation("PropertyUpdatedBy", fields: [updatedById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  @@index([status, expiresAt])
+  @@index([transaction, type, status])
+  @@index([regionId, status])
+  @@index([compoundId, status])
+  @@index([price])
+}
+
+model PropertyMedia {
+  id         String      @id @default(cuid())
+  propertyId String
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  assetId    String?
+  asset      MediaAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  url        String
+  alt        String?
+  sortOrder  Int      @default(0)
+  isCover    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([propertyId, sortOrder])
+  @@index([assetId])
+}
+
+/// "Partnerships / major projects" and "Completed / sold projects" sections.
+model Project {
+  id            String      @id @default(cuid())
+  kind          ProjectKind
+  name          String
+  nameAr        String?
+  slug          String      @unique
+  description   String?
+  descriptionEn String?
+  partnerName   String?
+  regionId      String?
+  region        Region?     @relation(fields: [regionId], references: [id])
+  coverImageUrl String?
+  completedAt   DateTime?
+  isPublished   Boolean     @default(true)
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([kind, isPublished])
+}
+
+model Inquiry {
+  id         String        @id @default(cuid())
+  propertyId String?
+  property   Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  name       String
+  phone      String
+  email      String?
+  message    String?
+  status     InquiryStatus @default(NEW)
+  staffNote  String?
+  firstResponseAt DateTime?
+  /// Set when the contact details were removed (retention policy or a person's erasure request).
+  anonymizedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([phone])
+  @@index([updatedAt])
+}
+
+/// "Add your property" requests from the public site.
+model PropertySubmission {
+  id           String           @id @default(cuid())
+  ownerName    String
+  phone        String
+  propertyType PropertyType?
+  transaction  TransactionType?
+  location     String?
+  details      String?
+  status       SubmissionStatus @default(NEW)
+  staffNote    String?
+  /// Set when the contact details were removed (retention policy or a person's erasure request).
+  anonymizedAt DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([phone])
+  @@index([updatedAt])
+}
+
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  passwordHash      String
+  name              String
+  role              Role           @default(CONTENT_ADMIN)
+  status            UserStatus     @default(ACTIVE)
+  lastLoginAt       DateTime?
+  /// Phase 3 — account security
+  twoFactorEnabled   Boolean   @default(false)
+  twoFactorEnabledAt DateTime?
+  totpSecret         String?   /// AES-256-GCM sealed (SETTINGS_ENCRYPTION_KEY)
+  totpPendingSecret  String?   /// sealed; set during enrolment until the first code is confirmed
+  totpLastStep       Int?      /// last accepted 30-second step — blocks code replay
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  passwordChangedAt  DateTime?
+  mustChangePassword Boolean   @default(false) /// set when an admin sets/resets the password
+  backupCodes        BackupCode[]
+  sessions           AdminSession[]
+  refreshTokens     RefreshToken[]
+  mediaAssets       MediaAsset[]
+  reportSchedules   ReportSchedule[]
+  auditLogs         AuditLog[]
+  createdProperties Property[]     @relation("PropertyCreatedBy")
+  updatedProperties Property[]     @relation("PropertyUpdatedBy")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  familyId  String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────── Phase 2 ───────────────────────────────
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+}
+
+enum MediaStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+/// Every uploaded file (media library). Images are stored as WebP variants; videos as-is plus a poster.
+model MediaAsset {
+  id           String          @id @default(cuid())
+  kind         MediaKind
+  status       MediaStatus     @default(READY)
+  storageKey   String          @unique /// folder/prefix in the bucket
+  url          String          /// largest image variant, or the video file
+  variants     Json?           /// { "480": url, "960": url, "1600": url }
+  posterUrl    String?         /// video thumbnail
+  mimeType     String
+  bytes        Int
+  width        Int?
+  height       Int?
+  durationSec  Float?
+  originalName String
+  alt          String?
+  uploadedById String?
+  uploadedBy   User?           @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  usages       PropertyMedia[]
+  createdAt    DateTime        @default(now())
+  deletedAt    DateTime?
+
+  @@index([kind, createdAt])
+  @@index([deletedAt])
+}
+
+/// One row per listing per day — powers views charts and conversion rates.
+model PropertyViewDaily {
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  day        DateTime @db.Date
+  views      Int      @default(0)
+
+  @@id([propertyId, day])
+  @@index([day])
+}
+
+enum ReportFrequency {
+  WEEKLY
+  MONTHLY
+}
+
+model ReportSchedule {
+  id          String          @id @default(cuid())
+  report      String          /// overview | properties | inquiries | team
+  frequency   ReportFrequency
+  format      String          @default("xlsx") /// xlsx | csv
+  recipients  String[]
+  isActive    Boolean         @default(true)
+  nextRunAt   DateTime
+  lastRunAt   DateTime?
+  createdById String?
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+
+  @@index([isActive, nextRunAt])
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Durable background job queue (claimed with FOR UPDATE SKIP LOCKED; safe with several workers).
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  status      JobStatus @default(QUEUED)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([status, runAt])
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+}
+
+/// Editable message templates, per channel and language.
+model NotificationTemplate {
+  id        String              @id @default(cuid())
+  key       String              /// e.g. inquiry_staff, inquiry_customer_ack
+  channel   NotificationChannel
+  locale    String              @default("ar")
+  subject   String?
+  body      String
+  isActive  Boolean             @default(true)
+  updatedAt DateTime            @updatedAt
+
+  @@unique([key, channel, locale])
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model NotificationLog {
+  id                String              @id @default(cuid())
+  channel           NotificationChannel
+  recipient         String
+  templateKey       String?
+  subject           String?
+  status            NotificationStatus
+  provider          String
+  providerMessageId String?
+  error             String?
+  jobId             String?
+  createdAt         DateTime            @default(now())
+
+  @@index([createdAt])
+  @@index([channel, status, createdAt])
+}
+
+// ─────────────────────────────── Phase 3 ───────────────────────────────
+
+/// One-time 2FA recovery codes (bcrypt-hashed).
+model BackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// A signed-in browser. RefreshToken.familyId = AdminSession.id. Checked on every admin request.
+model AdminSession {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip            String?
+  userAgent     String?
+  mfaVerified   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  expiresAt     DateTime  /// absolute limit (SESSION_MAX_HOURS)
+  revokedAt     DateTime?
+  revokedReason String?   /// logout | idle | expired | password_changed | 2fa_changed | admin | replay | role_changed
+
+  @@index([userId, revokedAt])
+  @@index([revokedAt, lastSeenAt])
+}

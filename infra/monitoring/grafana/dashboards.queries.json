@@ -1,0 +1,518 @@
+[
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Website (from outside)",
+  "datasource": "prometheus",
+  "expr": "min(probe_success{job=\"blackbox_http\"})"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "API servers up",
+  "datasource": "prometheus",
+  "expr": "sum(up{job=\"api\"})"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Server errors (5xx)",
+  "datasource": "prometheus",
+  "expr": "max(brookrege:http_errors:ratio5m{job=\"api\"})"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "API p95 response time",
+  "datasource": "prometheus",
+  "expr": "max(brookrege:http_latency:p95_5m{job=\"api\"})"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Alerts firing",
+  "datasource": "prometheus",
+  "expr": "count(ALERTS{alertstate=\"firing\", alertname!=\"Watchdog\"}) or vector(0)"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Last backup",
+  "datasource": "prometheus",
+  "expr": "time() - max(brookrege_backup_last_success_timestamp_seconds)"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Requests per second (API)",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (rate(http_requests_total{job=\"api\"}[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Page load time from outside",
+  "datasource": "prometheus",
+  "expr": "probe_duration_seconds{job=\"blackbox_http\"}"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Inquiries (24 h)",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_leads_last_24h{kind=\"inquiry\"})"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Property requests (24 h)",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_leads_last_24h{kind=\"submission\"})"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Inquiries waiting (NEW)",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_leads_open{kind=\"inquiry\"})"
+ },
+ {
+  "dashboard": "brookrege-overview",
+  "panel": "Active listings",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_listings{status=\"ACTIVE\"})"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Requests per second by status",
+  "datasource": "prometheus",
+  "expr": "sum by (status) (rate(http_requests_total{job=\"api\", server=~\"$server\"}[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Server error ratio (5xx)",
+  "datasource": "prometheus",
+  "expr": "brookrege:http_errors:ratio5m{job=\"api\"}"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Response time p50 / p95 / p99",
+  "datasource": "prometheus",
+  "expr": "histogram_quantile(0.5, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\", server=~\"$server\"}[$__rate_interval])))"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Response time p50 / p95 / p99",
+  "datasource": "prometheus",
+  "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\", server=~\"$server\"}[$__rate_interval])))"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Response time p50 / p95 / p99",
+  "datasource": "prometheus",
+  "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\", server=~\"$server\"}[$__rate_interval])))"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Slowest routes (p95)",
+  "datasource": "prometheus",
+  "expr": "topk(8, brookrege:http_latency_route:p95_5m)"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Busiest routes",
+  "datasource": "prometheus",
+  "expr": "topk(10, sum by (route) (rate(http_requests_total{job=\"api\", server=~\"$server\", route!=\"unmatched\"}[$__rate_interval])))"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Requests in flight",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (http_requests_in_flight{job=\"api\", server=~\"$server\"})"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Memory (RSS)",
+  "datasource": "prometheus",
+  "expr": "process_resident_memory_bytes{job=~\"api|worker\", server=~\"$server\"}"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "CPU",
+  "datasource": "prometheus",
+  "expr": "rate(process_cpu_seconds_total{job=~\"api|worker\", server=~\"$server\"}[$__rate_interval])"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Event-loop delay p99",
+  "datasource": "prometheus",
+  "expr": "nodejs_eventloop_lag_p99_seconds{job=~\"api|worker\", server=~\"$server\"}"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Version running",
+  "datasource": "prometheus",
+  "expr": "count by (version) (brookrege_app_info)"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "Restarts (process start time)",
+  "datasource": "prometheus",
+  "expr": "changes(process_start_time_seconds{job=~\"api|worker\"}[1h])"
+ },
+ {
+  "dashboard": "brookrege-application",
+  "panel": "API errors",
+  "datasource": "loki",
+  "expr": "{service=~\"api|worker\", level=\"error\"}"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Primary",
+  "datasource": "prometheus",
+  "expr": "max(pg_up{db_role=\"primary\"})"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Replica",
+  "datasource": "prometheus",
+  "expr": "max(pg_up{db_role=\"replica\"}) or vector(0)"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Replication lag",
+  "datasource": "prometheus",
+  "expr": "max(pg_replication_lag_seconds{db_role=\"replica\"}) or vector(0)"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Connections used",
+  "datasource": "prometheus",
+  "expr": "max(sum by (server) (pg_stat_activity_count) / on(server) max by (server) (pg_settings_max_connections))"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Cache hit ratio",
+  "datasource": "prometheus",
+  "expr": "sum(rate(pg_stat_database_blks_hit{db_role=\"primary\"}[5m])) / clamp_min(sum(rate(pg_stat_database_blks_hit{db_role=\"primary\"}[5m])) + sum(rate(pg_stat_database_blks_read{db_role=\"primary\"}[5m])), 1)"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Database size",
+  "datasource": "prometheus",
+  "expr": "max(pg_database_size_bytes{datname!~\"template.*|postgres\"})"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Connections by state",
+  "datasource": "prometheus",
+  "expr": "sum by (server, state) (pg_stat_activity_count{datname!~\"template.*\"})"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Transactions per second",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (rate(pg_stat_database_xact_commit[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Transactions per second",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (rate(pg_stat_database_xact_rollback[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Rows read / written",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (rate(pg_stat_database_tup_fetched[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Rows read / written",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (rate(pg_stat_database_tup_inserted[$__rate_interval]) + rate(pg_stat_database_tup_updated[$__rate_interval]) + rate(pg_stat_database_tup_deleted[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Replication lag",
+  "datasource": "prometheus",
+  "expr": "pg_replication_lag_seconds{db_role=\"replica\"}"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Deadlocks & temp files",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (increase(pg_stat_database_deadlocks[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Deadlocks & temp files",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (increase(pg_stat_database_temp_bytes[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-database",
+  "panel": "Reads falling back to the primary",
+  "datasource": "prometheus",
+  "expr": "1 - min by (server) (brookrege_db_replica_healthy)"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "CPU used",
+  "datasource": "prometheus",
+  "expr": "brookrege:node_cpu:ratio5m{server=~\"$server\"}"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Memory available",
+  "datasource": "prometheus",
+  "expr": "brookrege:node_memory_available:ratio{server=~\"$server\"}"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Disk free",
+  "datasource": "prometheus",
+  "expr": "brookrege:node_filesystem_free:ratio{server=~\"$server\", mountpoint=~\"/|/srv.*|/var/lib/docker\"}"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Load (1 min) per CPU",
+  "datasource": "prometheus",
+  "expr": "node_load1{server=~\"$server\"} / on(server) count by (server) (node_cpu_seconds_total{mode=\"idle\", server=~\"$server\"})"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Network in / out",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*|br-.*\", server=~\"$server\"}[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Network in / out",
+  "datasource": "prometheus",
+  "expr": "- sum by (server) (rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*|br-.*\", server=~\"$server\"}[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Disk I/O time",
+  "datasource": "prometheus",
+  "expr": "sum by (server) (rate(node_disk_io_time_seconds_total{server=~\"$server\"}[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Container CPU",
+  "datasource": "prometheus",
+  "expr": "sum by (server, name) (rate(container_cpu_usage_seconds_total{name!=\"\", server=~\"$server\"}[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Container memory",
+  "datasource": "prometheus",
+  "expr": "sum by (server, name) (container_memory_working_set_bytes{name!=\"\", server=~\"$server\"})"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Connections",
+  "datasource": "prometheus",
+  "expr": "sum(nginx_connections_active)"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Connections",
+  "datasource": "prometheus",
+  "expr": "sum(nginx_connections_waiting)"
+ },
+ {
+  "dashboard": "brookrege-servers",
+  "panel": "Requests per second (all sites)",
+  "datasource": "prometheus",
+  "expr": "sum(rate(nginx_http_requests_total[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Active listings",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_listings{status=\"ACTIVE\"})"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Drafts",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_listings{status=\"DRAFT\"})"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Expired",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_listings{status=\"EXPIRED\"})"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Sold",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_listings{status=\"SOLD\"})"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Expiring within 7 days",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_listings_expiring_7d)"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Uploads processing",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_media_processing)"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Listings by status",
+  "datasource": "prometheus",
+  "expr": "max by (status) (brookrege_listings)"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Leads received per hour",
+  "datasource": "prometheus",
+  "expr": "sum by (kind) (increase(brookrege_leads_created_total[1h]))"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Leads waiting for a reply (NEW)",
+  "datasource": "prometheus",
+  "expr": "max by (kind) (brookrege_leads_open)"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Leads in the last 24 h",
+  "datasource": "prometheus",
+  "expr": "max by (kind) (brookrege_leads_last_24h)"
+ },
+ {
+  "dashboard": "brookrege-business",
+  "panel": "Messages to customers & staff",
+  "datasource": "prometheus",
+  "expr": "sum by (channel, status) (increase(brookrege_notifications_total[1h]))"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "Failed sign-ins (1 h)",
+  "datasource": "prometheus",
+  "expr": "sum(increase(brookrege_auth_events_total{event=~\"login_failed|mfa_failed\"}[1h])) or vector(0)"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "Accounts locked (24 h)",
+  "datasource": "prometheus",
+  "expr": "sum(increase(brookrege_auth_events_total{event=\"locked\"}[24h])) or vector(0)"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "Successful sign-ins (24 h)",
+  "datasource": "prometheus",
+  "expr": "sum(increase(brookrege_auth_events_total{event=\"login\"}[24h])) or vector(0)"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "Admin sessions now",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_admin_sessions_active)"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "Sign-in events",
+  "datasource": "prometheus",
+  "expr": "sum by (event) (increase(brookrege_auth_events_total[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "Blocked admin requests",
+  "datasource": "prometheus",
+  "expr": "sum by (reason) (increase(brookrege_security_blocks_total[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "Refused requests (401 / 403 / 429)",
+  "datasource": "prometheus",
+  "expr": "sum by (status) (rate(http_requests_total{job=\"api\", status=~\"401|403|429\"}[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "Requests answered by nginx, by status class",
+  "datasource": "loki",
+  "expr": "sum by (status_class) (count_over_time({service=\"nginx\"} [$__auto]))"
+ },
+ {
+  "dashboard": "brookrege-security",
+  "panel": "SSH and fail2ban (servers)",
+  "datasource": "loki",
+  "expr": "{job=\"journal\"}"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Waiting (due now)",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_jobs{status=\"QUEUED\"})"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Oldest waiting",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_jobs_oldest_due_seconds)"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Running",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_jobs{status=\"RUNNING\"})"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Failed (kept 30 days)",
+  "datasource": "prometheus",
+  "expr": "max(brookrege_jobs{status=\"FAILED\"})"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Jobs finished",
+  "datasource": "prometheus",
+  "expr": "sum by (type, outcome) (increase(brookrege_jobs_processed_total[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Job run time p95",
+  "datasource": "prometheus",
+  "expr": "histogram_quantile(0.95, sum by (type, le) (rate(brookrege_job_duration_seconds_bucket[$__rate_interval])))"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Cache hit ratio",
+  "datasource": "prometheus",
+  "expr": "sum by (level) (rate(brookrege_cache_requests_total{result=\"hit\"}[$__rate_interval])) / clamp_min(sum by (level) (rate(brookrege_cache_requests_total[$__rate_interval])), 0.001)"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Redis memory",
+  "datasource": "prometheus",
+  "expr": "redis_memory_used_bytes"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Redis memory",
+  "datasource": "prometheus",
+  "expr": "redis_memory_max_bytes"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Redis commands per second",
+  "datasource": "prometheus",
+  "expr": "sum(rate(redis_commands_processed_total[$__rate_interval]))"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Redis evictions & expirations",
+  "datasource": "prometheus",
+  "expr": "rate(redis_evicted_keys_total[$__rate_interval])"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Redis evictions & expirations",
+  "datasource": "prometheus",
+  "expr": "rate(redis_expired_keys_total[$__rate_interval])"
+ },
+ {
+  "dashboard": "brookrege-jobs",
+  "panel": "Worker log",
+  "datasource": "loki",
+  "expr": "{service=\"worker\"}"
+ }
+]

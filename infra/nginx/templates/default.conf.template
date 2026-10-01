@@ -1,0 +1,212 @@
+# Rendered by the nginx image's envsubst at start-up:
+#   ${PUBLIC_DOMAIN} ${ADMIN_DOMAIN}  — hostnames
+#   ${TLS_PROTOCOLS}                  — "TLSv1.2 TLSv1.3" (default) or "TLSv1.3" once Cloudflare fronts the site
+#   ${ORIGIN_PULL}                    — "off" (default) or "on" (accept only Cloudflare's client certificate)
+#   ${SITE_ACCESS}                    — "public" (default) or "staging" (password + noindex, docker-compose.staging.yml)
+# This file is included inside nginx's http {} block.
+# IPv4 listeners only: Docker delivers traffic to the container over IPv4 (Cloudflare reaches the origin via the
+# A record), and "listen [::]" makes nginx refuse to start on hosts where IPv6 is disabled.
+
+# ───────────────────────── Hardening (http level) ─────────────────────────
+server_tokens off;                      # don't advertise the nginx version
+client_header_timeout 10s;              # slow-loris protection: headers must arrive quickly…
+client_body_timeout 30s;                # …and bodies keep flowing (admin uploads override this)
+send_timeout 30s;
+# keepalive_timeout is set per server (snippets/server.conf): the nginx image already sets it at http level.
+reset_timedout_connection on;
+client_header_buffer_size 1k;
+large_client_header_buffers 4 16k;      # oversized headers → 400/494
+limit_req_status 429;
+limit_conn_status 429;
+
+# JSON access log (one line per request) — shipped to Loki by Alloy. $uri has no query string, so search
+# terms and other parameters never reach the logs. $remote_addr is the real visitor (see real-IP below).
+log_format brookrege_json escape=json '{"time":"$time_iso8601","remote_addr":"$remote_addr","host":"$host",'
+  '"method":"$request_method","uri":"$uri","status":"$status","bytes":$body_bytes_sent,"request_time":$request_time,'
+  '"upstream_time":"$upstream_response_time","upstream":"$upstream_addr","cache":"$upstream_cache_status",'
+  '"ua":"$http_user_agent","cf_ray":"$http_cf_ray"}';
+
+# Search-engine indexing: allowed on the live site, blocked on staging ($robots_tag, used by snippets/security.conf).
+include /etc/nginx/snippets/robots.${SITE_ACCESS}.conf;
+
+# Real visitor IP behind Cloudflare. Lives in /etc/brookrege/cloudflare on the server (refreshed weekly by
+# infra/cloudflare/sync-ips.sh); the wildcard means a missing file never stops nginx from starting.
+include /etc/nginx/cloudflare/realip*.conf;
+
+# ───────────────────────── Rate & connection limits (per visitor) ─────────────────────────
+# Load tests only (docs/operations/PERFORMANCE.md): an address listed in /etc/brookrege/cloudflare/loadtest-allow.conf
+# (one line like: 203.0.113.5 "";) isn't counted by the browsing limits below. Sign-in, forms and admin limits
+# always apply. Delete the file and reload nginx after the test.
+map $remote_addr $browse_limit_key {
+  default $binary_remote_addr;
+  include /etc/nginx/cloudflare/loadtest-allow*.conf;
+}
+limit_req_zone $browse_limit_key zone=pages:10m  rate=10r/s;   # page loads
+limit_req_zone $browse_limit_key zone=api:10m    rate=20r/s;   # public API
+limit_req_zone $browse_limit_key zone=search:10m rate=5r/s;    # listing search / map / summaries (database-heavy)
+limit_req_zone $binary_remote_addr zone=leads:10m  rate=5r/m;    # inquiry and "add your property" forms
+limit_req_zone $binary_remote_addr zone=auth:10m   rate=10r/m;   # admin sign-in and 2FA
+limit_req_zone $binary_remote_addr zone=admin:10m  rate=30r/s;   # admin API
+limit_conn_zone $browse_limit_key zone=perip:10m;
+
+# Micro-cache for the public site (snippets/microcache.conf). 20 MB of keys ≈ 160,000 entries; 512 MB on disk.
+proxy_cache_path /var/cache/nginx/brookrege levels=1:2 keys_zone=microcache:20m max_size=512m inactive=10m use_temp_path=off;
+# Never cache the health check (monitoring must see the truth) or anything with a session cookie.
+map $uri $microcache_skip_uri {
+  default 0;
+  /api/health 1;
+}
+map $http_cookie $microcache_skip_cookie {
+  default 0;
+  ~*(__Host-bk_at|__Secure-bk_rt|bk_at|bk_rt) 1;
+}
+map "$microcache_skip_uri$microcache_skip_cookie" $microcache_skip {
+  default 1;
+  "00" "";
+}
+
+# App-server pools. Which file is mounted decides the topology:
+#   upstreams/single-server.conf  Phase 1 — everything on one VPS
+#   upstreams/multi-server.conf   Phase 2 — VPS2 + VPS3 over the private network, least_conn
+include /etc/nginx/upstreams.conf;
+
+# ───────────────────────── Metrics for the nginx exporter (host loopback only) ─────────────────────────
+server {
+  listen 8088;
+  server_name _;
+  access_log off;
+  location = /stub_status { stub_status; }
+  location / { return 404; }
+}
+
+# ───────────────────────── Catch-all ─────────────────────────
+# Requests for any other hostname (or the bare IP address) are dropped without a response:
+# scanners learn nothing, and Host-header tricks can't reach the apps.
+server {
+  listen 80 default_server;
+  server_name _;
+  include /etc/nginx/snippets/server.conf;
+  return 444;
+}
+server {
+  listen 443 ssl default_server;
+  server_name _;
+  include /etc/nginx/snippets/server.conf;
+  ssl_reject_handshake on;               # refuse TLS for unknown names (no certificate needed)
+}
+
+# HTTP → HTTPS (plus Let's Encrypt validation)
+server {
+  listen 80;
+  server_name ${PUBLIC_DOMAIN} www.${PUBLIC_DOMAIN} ${ADMIN_DOMAIN};
+  include /etc/nginx/snippets/server.conf;
+  location /.well-known/acme-challenge/ { root /var/www/certbot; }
+  location / { return 301 https://$host$request_uri; }
+}
+
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name www.${PUBLIC_DOMAIN};
+  include /etc/nginx/snippets/server.conf;
+  ssl_certificate /etc/letsencrypt/live/${PUBLIC_DOMAIN}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${PUBLIC_DOMAIN}/privkey.pem;
+  ssl_protocols ${TLS_PROTOCOLS};
+  include /etc/nginx/snippets/tls.conf;
+  include /etc/nginx/snippets/origin-pull.${ORIGIN_PULL}.conf;
+  include /etc/nginx/snippets/security.conf;
+  return 301 https://${PUBLIC_DOMAIN}$request_uri;
+}
+
+# ───────────────────────── Public site ─────────────────────────
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${PUBLIC_DOMAIN};
+  include /etc/nginx/snippets/server.conf;
+  ssl_certificate /etc/letsencrypt/live/${PUBLIC_DOMAIN}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${PUBLIC_DOMAIN}/privkey.pem;
+  ssl_protocols ${TLS_PROTOCOLS};
+  include /etc/nginx/snippets/tls.conf;
+  include /etc/nginx/snippets/origin-pull.${ORIGIN_PULL}.conf;
+  include /etc/nginx/snippets/security.conf;
+  include /etc/nginx/snippets/site-access.${SITE_ACCESS}.conf;
+
+  limit_conn perip 50;
+  client_max_body_size 1m;
+  gzip on;
+  gzip_types text/css application/javascript application/json image/svg+xml;
+
+  include /etc/nginx/snippets/block-probes.conf;
+
+  location /uploads/ {
+    alias /data/uploads/;
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+    include /etc/nginx/snippets/security.conf;
+  }
+  # The admin API is only served on the admin domain.
+  location /api/admin/ { return 404; }
+  location = /api/inquiries   { limit_req zone=leads burst=5 nodelay; include /etc/nginx/snippets/proxy.conf; proxy_pass http://api; }
+  location = /api/submissions { limit_req zone=leads burst=5 nodelay; include /etc/nginx/snippets/proxy.conf; proxy_pass http://api; }
+  location ~ ^/api/properties(/map|/summary)?$ { limit_req zone=search burst=20 nodelay; include /etc/nginx/snippets/proxy.conf; include /etc/nginx/snippets/microcache.conf; proxy_pass http://api; }
+  location /api/ { limit_req zone=api burst=40 nodelay; include /etc/nginx/snippets/proxy.conf; include /etc/nginx/snippets/microcache.conf; proxy_pass http://api; }
+  location /_next/static/ {
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://web;
+    expires 365d;
+    add_header Cache-Control "public, immutable";
+    include /etc/nginx/snippets/security.conf;
+  }
+  # Home-page film (versioned folders, never change): long browser/Cloudflare cache, no micro-cache for 6 MB files.
+  location /journey/ {
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://web;
+    expires 365d;
+    add_header Cache-Control "public, immutable";
+    include /etc/nginx/snippets/security.conf;
+  }
+  location / { limit_req zone=pages burst=40 nodelay; include /etc/nginx/snippets/proxy.conf; include /etc/nginx/snippets/microcache.conf; proxy_pass http://web; }
+}
+
+# ───────────────────────── Admin ─────────────────────────
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${ADMIN_DOMAIN};
+  include /etc/nginx/snippets/server.conf;
+  ssl_certificate /etc/letsencrypt/live/${PUBLIC_DOMAIN}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${PUBLIC_DOMAIN}/privkey.pem;
+  ssl_protocols ${TLS_PROTOCOLS};
+  include /etc/nginx/snippets/tls.conf;
+  include /etc/nginx/snippets/origin-pull.${ORIGIN_PULL}.conf;
+  include /etc/nginx/snippets/security.conf;
+  add_header X-Robots-Tag "noindex, nofollow" always;
+  include /etc/nginx/snippets/site-access.${SITE_ACCESS}.conf;
+  # Access control for the admin is done by the app (IP allowlist, 2FA) and, recommended, Cloudflare Access.
+
+  limit_conn perip 30;
+  client_max_body_size 300m; # bulk upload: 20 photos × 15 MB, or one 95 MB video
+
+  include /etc/nginx/snippets/block-probes.conf;
+
+  location /uploads/ {
+    alias /data/uploads/;
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+    include /etc/nginx/snippets/security.conf;
+  }
+  location /api/admin/auth/ { limit_req zone=auth burst=5 nodelay; include /etc/nginx/snippets/proxy.conf; proxy_pass http://api; }
+  # Uploads stream straight through; image processing can take a while for 20 photos.
+  location /api/admin/ {
+    limit_req zone=admin burst=60 nodelay;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_request_buffering off;
+    client_body_timeout 300s;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+    proxy_pass http://api;
+  }
+  location /api/ { limit_req zone=api burst=40 nodelay; include /etc/nginx/snippets/proxy.conf; proxy_pass http://api; }
+  location / { limit_req zone=pages burst=40 nodelay; include /etc/nginx/snippets/proxy.conf; proxy_pass http://admin; }
+}

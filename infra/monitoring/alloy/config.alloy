@@ -1,0 +1,98 @@
+// Grafana Alloy — runs on every server. Ships container logs (and SSH/fail2ban logs from the systemd
+// journal) to Loki on the monitoring server. Environment: LOKI_URL, SERVER_NAME.
+
+discovery.docker "containers" {
+	host             = "unix:///var/run/docker.sock"
+	refresh_interval = "15s" // new or restarted containers are picked up within 15 s
+}
+
+discovery.relabel "containers" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+		target_label  = "project"
+	}
+}
+
+loki.source.docker "containers" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.containers.targets
+	relabel_rules = discovery.relabel.containers.rules
+	labels        = {job = "docker"}
+	forward_to    = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+	// API and worker write JSON lines (winston): lift "level" into a label so errors are one click away.
+	stage.match {
+		selector = "{service=~\"api|worker|api-1|api-2\"}"
+
+		stage.json {
+			expressions = {level = "level", message = "message"}
+		}
+
+		stage.labels {
+			values = {level = ""}
+		}
+	}
+	// nginx writes JSON access logs (format "brookrege_json"): status becomes a label, the rest stays in the line.
+	stage.match {
+		selector = "{service=\"nginx\"}"
+
+		stage.json {
+			expressions = {status = "status"}
+		}
+
+		stage.regex {
+			source     = "status"
+			expression = "^(?P<status_class>[1-5])"
+		}
+
+		stage.template {
+			source   = "status_class"
+			template = "{{ .Value }}xx"
+		}
+
+		stage.labels {
+			values = {status_class = ""}
+		}
+	}
+	forward_to = [loki.write.default.receiver]
+}
+
+// SSH logins and fail2ban bans (security dashboard). Needs /var/log/journal and /etc/machine-id mounted.
+loki.relabel "journal" {
+	forward_to = []
+
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		target_label  = "unit"
+	}
+}
+
+loki.source.journal "system" {
+	matches       = "_SYSTEMD_UNIT=ssh.service _SYSTEMD_UNIT=fail2ban.service"
+	relabel_rules = loki.relabel.journal.rules
+	labels        = {job = "journal"}
+	max_age       = "12h"
+	forward_to    = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+	endpoint {
+		url = sys.env("LOKI_URL")
+	}
+	external_labels = {server = sys.env("SERVER_NAME")}
+}

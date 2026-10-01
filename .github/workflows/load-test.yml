@@ -26,6 +26,6 @@ jobs:
           docker run --rm -v "$PWD/tests/load:/scripts" grafana/k6:1.2.3 run \
             -e BASE_URL="${{ inputs.base_url }}" -e PROFILE="${{ inputs.profile }}" \
             --summary-export=/scripts/summary.json /scripts/brookrege.js
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: k6-summary, path: tests/load/summary.json, retention-days: 30 }

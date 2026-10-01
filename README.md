@@ -14,15 +14,17 @@ docs/         Architecture, guides, runbooks, security, launch and training mate
 **Launch it:** [docs/LAUNCH-NOW.md](docs/LAUNCH-NOW.md) (one command on a new server) · **Start here:** [Project status](docs/PROJECT-STATUS.md) · [Architecture](docs/ARCHITECTURE.md) · [Home film](docs/HOME-FILM.md) · [Developer guide](docs/DEVELOPER-GUIDE.md) ·
 [API reference](docs/api/index.html) (open in a browser) · [Decisions](docs/DECISIONS.md)
 
-## Run it — one command
+## Run it on your computer
 
-1. Install **Docker Desktop** (Windows/Mac) or Docker Engine (Linux).
-2. In this folder run:
+1. Install **Docker Desktop** (Windows/Mac) or Docker Engine (Linux) and open it once.
+2. Start Brookrege:
+   - **Windows:** double-click **`start-brookrege.bat`** in this folder.
+   - **Mac / Linux:** run `./start-brookrege.sh` in this folder.
 
-```bash
-docker compose up --build
-```
-
+   It checks that Docker is running, makes sure no other project is using Brookrege's ports (if another
+   project's container holds one, it asks to stop it — nothing is deleted), builds and starts everything,
+   waits until the Brookrege site answers and opens it. The first start takes 5–15 minutes; later ones seconds.
+   (Without the script: `docker compose up -d --build`.)
 3. Open:
 
 | | URL | Sign-in |
@@ -31,7 +33,15 @@ docker compose up --build
 | Admin dashboard | http://localhost:3001 | `admin@brookrege.com` / `Brookrege-Demo-2026!` |
 | API health | http://localhost:4000/health | — |
 
-The first build downloads dependencies and takes a few minutes. The database migrations and demo listings are applied automatically. Stop with `Ctrl+C`; wipe all data with `docker compose down -v`.
+Stop: `stop-brookrege.bat` (Windows) or `docker compose down` — your data is kept. Wipe all local data: `docker compose down -v`.
+The database migrations and demo listings are applied automatically.
+
+**localhost:3000 shows a different project?** Another project (for example one started with its own
+`docker compose`, which restarts with Docker Desktop) is holding the port, so Brookrege could not start. Run
+the start script — it finds and stops that container — or stop it in Docker Desktop › Containers.
+**Need other ports?** Create a file named `.env` here with e.g. `WEB_PORT=3100`, `ADMIN_PORT=3101`,
+`API_PORT=4100` (and `DB_PORT`, default 5434), then start again. If something still fails, the start script
+saves the details in `brookrege-start-log.txt`.
 
 ## Content language rule
 
@@ -62,10 +72,10 @@ Schema changes: edit `apps/api/prisma/schema.prisma`, then `npx -w @brookrege/ap
 npm test -w @brookrege/domain     # business rules, no database needed
 
 # API integration tests use the separate brookrege_test database:
-DATABASE_URL=postgresql://brookrege:brookrege@localhost:5432/brookrege_test?schema=public \
-DIRECT_DATABASE_URL=postgresql://brookrege:brookrege@localhost:5432/brookrege_test?schema=public \
+DATABASE_URL=postgresql://brookrege:brookrege@localhost:5434/brookrege_test?schema=public \
+DIRECT_DATABASE_URL=postgresql://brookrege:brookrege@localhost:5434/brookrege_test?schema=public \
   npx -w @brookrege/api prisma migrate deploy
-DATABASE_URL=postgresql://brookrege:brookrege@localhost:5432/brookrege_test?schema=public \
+DATABASE_URL=postgresql://brookrege:brookrege@localhost:5434/brookrege_test?schema=public \
   NODE_ENV=test JWT_ACCESS_SECRET=local-test-secret-local-test-secret-xx \
   npm test -w @brookrege/api
 

@@ -14,3 +14,4 @@ coverage
 # Monitoring: rendered per installation by infra/monitoring/configure.py
 infra/monitoring/generated/
 .env.monitoring
+brookrege-start-log.txt

@@ -1,0 +1,12 @@
+# Same line endings on every computer: Windows checkouts must not turn shell scripts into CRLF.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.mp4 binary
+*.webm binary
+*.pdf binary
+*.woff2 binary

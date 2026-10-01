@@ -101,6 +101,8 @@ jobs:
           git ls-files -z '*.sh' | xargs -0 shellcheck -S warning
       - name: Dockerfiles copy each app's public folder (icons, images, films)
         run: python3 scripts/ci/dockerfile-check.py
+      - name: Local start scripts (Windows and Mac/Linux) with a stand-in docker
+        run: bash tests/local/test-start.sh
       - name: One-command installer, dry run (settings, secrets, validation)
         run: bash tests/install/test-install.sh
       - name: Deploy and rollback scripts (stand-in docker/git/ssh; success, failures, automatic rollback, three servers)

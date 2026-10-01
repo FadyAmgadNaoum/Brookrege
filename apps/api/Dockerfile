@@ -25,7 +25,8 @@ COPY --from=build /repo/apps/api/package.json apps/api/
 COPY --from=build /repo/apps/api/dist apps/api/dist
 COPY --from=build /repo/apps/api/prisma apps/api/prisma
 COPY apps/api/docker-start.sh apps/api/docker-start.sh
-RUN mkdir -p /data/uploads && chown -R app:app /data && chmod +x apps/api/docker-start.sh
+# A Windows checkout can turn the script's line endings into CRLF, which stops it from running.
+RUN tr -d '\r' < apps/api/docker-start.sh > /tmp/s && cat /tmp/s > apps/api/docker-start.sh && rm /tmp/s && mkdir -p /data/uploads && chown -R app:app /data && chmod +x apps/api/docker-start.sh
 USER app
 WORKDIR /repo/apps/api
 ARG APP_VERSION=dev

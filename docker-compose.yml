@@ -7,9 +7,13 @@
 #               Admin    http://localhost:3001   admin@brookrege.com / Brookrege-Demo-2026!
 #               API      http://localhost:4000/health
 #
-#  First build takes a few minutes. Stop with Ctrl+C. Reset all data: docker compose down -v
+#  Easiest: double-click start-brookrege.bat (Windows) or run ./start-brookrege.sh (Mac/Linux). It checks
+#  that nothing else (another project) is using these ports, starts everything and opens the browser.
+#  First build takes a few minutes. Stop: docker compose down. Reset all data: docker compose down -v
+#  Other ports, if you need them: set WEB_PORT / ADMIN_PORT / API_PORT / DB_PORT in a file named .env here.
 #  Developers who want hot reload: `docker compose up postgres` + `npm run dev:*` (see README).
 # ─────────────────────────────────────────────────────────────────────────────
+name: brookrege
 services:
   postgres:
     image: postgres:15-alpine
@@ -17,7 +21,8 @@ services:
       POSTGRES_USER: brookrege
       POSTGRES_PASSWORD: brookrege
       POSTGRES_DB: brookrege
-    ports: ["5432:5432"]
+    # Only this computer can reach it, on 5434 so it never clashes with another Postgres (5432/5433).
+    ports: ["127.0.0.1:${DB_PORT:-5434}:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
@@ -34,40 +39,47 @@ services:
       DIRECT_DATABASE_URL: postgresql://brookrege:brookrege@postgres:5432/brookrege?schema=public
       INSTANCE_ID: local
       JWT_ACCESS_SECRET: local-development-secret-not-for-production-use-0123456789
-      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
-      PUBLIC_API_URL: http://localhost:4000
+      CORS_ORIGINS: http://localhost:${WEB_PORT:-3000},http://localhost:${ADMIN_PORT:-3001}
+      PUBLIC_API_URL: http://localhost:${API_PORT:-4000}
       COOKIE_SECURE: "false" # plain http on localhost
       APP_ENV: local          # uses development secrets on purpose; production refuses to start with them
       SEED_DEMO: "true"
       SETTINGS_ENCRYPTION_KEY: 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f  # local only
-      ADMIN_APP_URL: http://localhost:3001
+      ADMIN_APP_URL: http://localhost:${ADMIN_PORT:-3001}
       SEED_ADMIN_EMAIL: admin@brookrege.com
       SEED_ADMIN_PASSWORD: Brookrege-Demo-2026!
-    ports: ["4000:4000"]
+    ports: ["${API_PORT:-4000}:4000"]
     volumes: [uploads:/data/uploads]
+    # Migrations and demo data run first: give a slow laptop time before calling the API unhealthy.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      start_period: 240s
+      retries: 10
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:4000
+        NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-4000}
         NEXT_PUBLIC_WHATSAPP_NUMBER: "201000000000"
     depends_on: { api: { condition: service_healthy } }
     environment:
       API_INTERNAL_URL: http://api:4000
-      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-4000}
       NEXT_PUBLIC_WHATSAPP_NUMBER: "201000000000"
-    ports: ["3000:3000"]
+    ports: ["${WEB_PORT:-3000}:3000"]
 
   admin:
     build:
       context: .
       dockerfile: apps/admin/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:4000
+        NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-4000}
     depends_on: { api: { condition: service_healthy } }
-    ports: ["3001:3001"]
+    ports: ["${ADMIN_PORT:-3001}:3001"]
 
 volumes:
   pgdata:

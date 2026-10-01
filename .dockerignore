@@ -1,0 +1,18 @@
+# Keep the build context small and free of this computer's own installs and secrets.
+# (A Windows node_modules or .next copied into a Linux image breaks the build.)
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.log
+.git
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/.env
+**/.env.local
+backups
+uploads
+**/uploads
+docs/*.pdf

@@ -69,7 +69,7 @@ jobs:
               zap-baseline.py -t "$2" -c rules.tsv -r "$1.html" -J "$1.json" -I -m 3 || rc=1
           done
           exit $rc
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: zap-reports, path: zap/, retention-days: 30 }
       - name: Stack logs on failure
@@ -92,7 +92,7 @@ jobs:
           print(f"{len(r)} finding(s)")
           for f in r: print(f"::warning file={f['path']},line={f['start']['line']}::{f['check_id']}: {f['extra']['message'][:180]}")
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: semgrep, path: semgrep.json, retention-days: 30 }
 
   snyk:

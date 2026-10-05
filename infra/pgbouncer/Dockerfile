@@ -1,5 +1,5 @@
 # Minimal pgBouncer built from Alpine packages (no third-party image to trust or pin).
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache pgbouncer postgresql15-client gettext \
  && adduser -S -D -H -u 70 pgb \
  && mkdir -p /run/pgbouncer /state && chown pgb /run/pgbouncer /state

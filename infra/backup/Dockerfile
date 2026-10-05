@@ -1,5 +1,5 @@
 # Nightly encrypted database backups (see infra/backup/backup.sh and docs/security/BACKUPS.md).
-FROM postgres:15-alpine
+FROM postgres:18-alpine
 RUN apk add --no-cache age rclone tzdata
 COPY backup.sh /usr/local/bin/brookrege-backup
 RUN tr -d '\r' < /usr/local/bin/brookrege-backup > /tmp/s && cat /tmp/s > /usr/local/bin/brookrege-backup && rm /tmp/s && chmod +x /usr/local/bin/brookrege-backup

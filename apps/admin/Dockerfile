@@ -1,5 +1,5 @@
 # Build context: repository root.
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /repo
 COPY package.json package-lock.json* ./
 COPY packages/domain/package.json packages/domain/
@@ -12,7 +12,7 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build -w @brookrege/domain && npm run build -w @brookrege/admin
 
-FROM node:20-alpine
+FROM node:26-alpine
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3001 HOSTNAME=0.0.0.0
 RUN addgroup -S app && adduser -S app -G app

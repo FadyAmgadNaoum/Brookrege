@@ -30,7 +30,7 @@ jobs:
       TEST_REDIS_URL: redis://localhost:6379/1
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - name: Install dependencies
         # npm ci once package-lock.json is committed (recommended); npm install until then.
@@ -65,7 +65,7 @@ jobs:
         with: { fetch-depth: 0 }   # full history: secrets in old commits count too
       - name: Secret scan (gitleaks, whole history)
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 detect --source /repo --config /repo/.gitleaks.toml --redact --no-banner -v
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - name: Resolve the dependency tree (lockfile only, no install scripts)
         run: '[ -f package-lock.json ] || npm install --package-lock-only --ignore-scripts --no-audit --no-fund'

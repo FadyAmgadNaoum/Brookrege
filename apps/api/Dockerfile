@@ -1,5 +1,5 @@
 # Build context: repository root (needs packages/domain).
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 RUN apk add --no-cache openssl
 WORKDIR /repo
 COPY package.json package-lock.json* ./
@@ -14,7 +14,7 @@ COPY apps/api apps/api
 RUN npm run build -w @brookrege/domain && npm run build:docker -w @brookrege/api \
  && npm prune --omit=dev --workspace @brookrege/api --workspace @brookrege/domain
 
-FROM node:20-alpine
+FROM node:26-alpine
 RUN apk add --no-cache openssl tini ffmpeg && addgroup -S app && adduser -S app -G app
 WORKDIR /repo
 ENV NODE_ENV=production
